@@ -1,0 +1,73 @@
+[package]
+name = "floz"
+version = "0.1.0"
+edition = "2021"
+description = "A batteries-included MVC web framework for Rust — built on ntex + Floz"
+license = "MIT"
+
+[features]
+default = ["full"]
+full = ["auth", "worker", "logger", "openapi", "compression", "mailer", "storage"]
+auth = ["dep:jsonwebtoken", "dep:bcrypt", "dep:sha2", "dep:base64"]
+worker = ["dep:redis"]
+logger = ["dep:tracing-appender"]
+openapi = ["dep:utoipa"]
+compression = ["dep:flate2"]
+mailer = []
+storage = []
+
+[dependencies]
+# ORM — tightly integrated
+floz_orm = { workspace = true }
+
+# Core
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+futures = { workspace = true }
+inventory = "0.3"
+
+# Database
+sqlx = { workspace = true }
+
+# HTTP (ntex as default, pluggable via trait)
+ntex = { workspace = true }
+http = { workspace = true }
+
+# Proc macros — re-exported
+floz-macros = { path = "../floz-macros" }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true, optional = true }
+
+# Auth & Crypto (feature-gated)
+jsonwebtoken = { workspace = true, optional = true }
+bcrypt = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+base64 = { workspace = true, optional = true }
+
+# Redis (feature-gated for workers)
+redis = { workspace = true, optional = true }
+
+# Compression (feature-gated)
+flate2 = { workspace = true, optional = true }
+
+# Utilities
+dotenvy = { workspace = true }
+once_cell = { workspace = true }
+dashmap = { workspace = true }
+regex = { workspace = true }
+validator = { workspace = true }
+nanoid = { workspace = true }
+
+# OpenAPI (feature-gated)
+utoipa = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
