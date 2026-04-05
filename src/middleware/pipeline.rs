@@ -96,8 +96,8 @@ pub struct EmptyStack;
 /// Users never construct this directly.
 #[derive(Clone, Debug)]
 pub struct Stack<Inner, Outer> {
-    pub(crate) inner: Inner,
-    pub(crate) outer: Outer,
+    pub inner: Inner,
+    pub outer: Outer,
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -167,10 +167,10 @@ impl<M: Process> FlozPipeline<M> {
     }
 }
 
-impl<S, M: Process> NtexMiddleware<S> for FlozPipeline<M> {
+impl<S, C, M: Process> NtexMiddleware<S, C> for FlozPipeline<M> {
     type Service = FlozPipelineService<S, M>;
 
-    fn create(&self, service: S) -> Self::Service {
+    fn create(&self, service: S, _cfg: C) -> Self::Service {
         FlozPipelineService {
             service,
             middlewares: self.middlewares.clone(),

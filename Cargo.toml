@@ -1,6 +1,6 @@
 [package]
 name = "floz"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "A batteries-included MVC web framework for Rust — built on ntex + Floz"
 license = "MIT"
@@ -8,7 +8,7 @@ repository = "https://github.com/floz-rs/floz"
 
 [features]
 default = ["full"]
-full = ["auth", "worker", "logger", "openapi", "compression", "mailer", "storage"]
+full = ["auth", "worker", "logger", "openapi", "compression", "mailer"]
 postgres = ["floz_orm/postgres", "dep:sqlx"]
 sqlite   = ["floz_orm/sqlite", "dep:sqlx"]
 auth = ["dep:jsonwebtoken", "dep:bcrypt", "dep:sha2", "dep:base64"]
@@ -17,7 +17,7 @@ logger = ["dep:tracing-appender"]
 openapi = ["dep:utoipa"]
 compression = ["dep:flate2"]
 mailer = []
-storage = []
+
 
 [dependencies]
 # ORM — tightly integrated
@@ -42,7 +42,7 @@ ntex = { workspace = true }
 http = { workspace = true }
 
 # Proc macros — re-exported
-floz-macros = "0.1.0"
+floz-macros = { workspace = true }
 
 # Logging
 tracing = { workspace = true }

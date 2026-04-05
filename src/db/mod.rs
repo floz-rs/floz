@@ -5,7 +5,7 @@
 
 #[cfg(any(feature = "postgres", feature = "sqlite"))]
 mod pool;
-#[cfg(any(feature = "postgres", feature = "sqlite"))]
+#[cfg(feature = "postgres")]
 mod query;
 
 #[cfg(any(feature = "postgres", feature = "sqlite"))]

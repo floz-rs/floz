@@ -54,6 +54,8 @@ pub struct App<M = EmptyStack> {
     server_config: ServerConfig<M>,
     extensions: std::collections::HashMap<std::any::TypeId, Box<dyn std::any::Any + Send + Sync>>,
     on_start: Option<Box<dyn FnOnce(AppContext) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> + Send>>,
+    #[cfg(feature = "worker")]
+    background_worker_concurrency: Option<usize>,
 }
 
 impl App<EmptyStack> {
@@ -64,6 +66,8 @@ impl App<EmptyStack> {
             server_config: ServerConfig::default(),
             extensions: std::collections::HashMap::new(),
             on_start: None,
+            #[cfg(feature = "worker")]
+            background_worker_concurrency: None,
         }
     }
 }
@@ -91,6 +95,8 @@ impl<M> App<M> {
             server_config,
             extensions: self.extensions,
             on_start: self.on_start,
+            #[cfg(feature = "worker")]
+            background_worker_concurrency: self.background_worker_concurrency,
         }
     }
 
@@ -99,6 +105,13 @@ impl<M> App<M> {
     /// Available in handlers via `state.ext::<T>()`.
     pub fn with<T: Send + Sync + 'static>(mut self, data: T) -> Self {
         self.extensions.insert(std::any::TypeId::of::<T>(), Box::new(data));
+        self
+    }
+
+    /// Run a background task worker in-process alongside the HTTP server.
+    #[cfg(feature = "worker")]
+    pub fn with_worker(mut self, concurrency: usize) -> Self {
+        self.background_worker_concurrency = Some(concurrency);
         self
     }
 
@@ -168,6 +181,18 @@ impl<M: Process> App<M> {
             on_start(ctx.clone()).await;
         }
 
+        #[cfg(feature = "worker")]
+        if let Some(concurrency) = self.background_worker_concurrency {
+            let redis_url = config.redis_url.clone().expect("REDIS_URL must be set to run background workers");
+            let broker = std::sync::Arc::new(crate::worker::RedisBroker::new(&redis_url).await.expect("Failed to connect worker to Redis"));
+            let worker = crate::worker::Worker::new(ctx.clone(), broker).concurrency(concurrency);
+            tokio::spawn(async move {
+                if let Err(e) = worker.run().await {
+                    tracing::error!("Background worker failed: {:?}", e);
+                }
+            });
+        }
+
         // Get addr before moving middlewares out
         let addr = self.server_config.get_socket_addr();
         let pipeline = FlozPipeline::new(self.server_config.middlewares);
@@ -186,10 +211,13 @@ impl<M: Process> App<M> {
 
         HttpServer::new(move || {
             let openapi_json_worker = openapi_json.clone();
-            let mut app = web::App::new()
-                .state(ctx.clone())
-                // Apply the floz middleware pipeline — fully inlined
-                .wrap(pipeline.clone());
+            let pipeline = pipeline.clone();
+            let ctx = ctx.clone();
+            async move {
+                let mut app = web::App::new()
+                    .state(ctx)
+                    // Apply the floz middleware pipeline — fully inlined
+                    .middleware(pipeline);
 
             // Mount Swagger UI and OpenAPI JSON endpoints
             app = app.route("/api-docs/openapi.json", web::get().to(move || {
@@ -213,6 +241,7 @@ impl<M: Process> App<M> {
             });
 
             app
+            }
         })
         .bind(addr)?
         .run()

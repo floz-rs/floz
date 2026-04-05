@@ -33,6 +33,8 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Core modules — always available
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+pub use {chrono, serde_json};
+
 pub mod app;
 pub mod config;
 pub mod errors;
@@ -76,6 +78,9 @@ pub mod auth;
 
 #[cfg(feature = "worker")]
 pub mod worker;
+
+#[cfg(feature = "worker")]
+pub mod cache;
 
 #[cfg(feature = "logger")]
 pub mod logger;

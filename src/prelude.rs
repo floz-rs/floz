@@ -51,11 +51,19 @@ pub use crate::logger::HttpLogger;
 // ORM — tight integration
 pub use floz_orm::prelude::*;
 
+// Cache
+#[cfg(feature = "worker")]
+pub use crate::cache::Cache;
+
 // Macros
 pub use crate::{echo, res, pp, xquery};
 
 // Route macro — the `#[route(...)]` attribute
 pub use floz_macros::route;
+
+// Task macro
+#[cfg(feature = "worker")]
+pub use floz_macros::task;
 
 // Framework HTTP & Web constructs
 pub use crate::main;

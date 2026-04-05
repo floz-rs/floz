@@ -16,17 +16,24 @@ pub struct AppContext {
     /// Database connection pool (PostgreSQL)
     #[cfg(feature = "postgres")]
     pub db_pool: crate::db::PgDbPool,
+    /// Database connection pool (SQLite)
+    #[cfg(all(feature = "sqlite", not(feature = "postgres")))]
+    pub db_pool: crate::db::SqliteDbPool,
     /// Application configuration
     pub config: Config,
     /// Custom application state extensions
     pub extensions: Arc<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
+    /// Redis cache connection
+    #[cfg(feature = "worker")]
+    pub cache: Option<crate::cache::Cache>,
 }
 
 impl AppContext {
     /// Create a new AppContext with the given pool and config.
-    #[cfg(feature = "postgres")]
+    #[cfg(any(feature = "postgres", feature = "sqlite"))]
     pub fn new(
-        db_pool: crate::db::PgDbPool,
+        #[cfg(feature = "postgres")] db_pool: crate::db::PgDbPool,
+        #[cfg(all(feature = "sqlite", not(feature = "postgres")))] db_pool: crate::db::SqliteDbPool,
         config: Config,
         extensions: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
     ) -> Self {
@@ -34,6 +41,8 @@ impl AppContext {
             db_pool,
             config,
             extensions: Arc::new(extensions),
+            #[cfg(feature = "worker")]
+            cache: None,
         }
     }
 
@@ -50,6 +59,28 @@ impl AppContext {
     #[cfg(feature = "postgres")]
     pub fn db(&self) -> floz_orm::Db {
         floz_orm::Db::from_pg_pool((*self.db_pool).clone())
+    }
+
+    #[cfg(all(feature = "sqlite", not(feature = "postgres")))]
+    pub fn db(&self) -> floz_orm::Db {
+        floz_orm::Db::from_sqlite_pool((*self.db_pool).clone())
+    }
+
+    /// Get a Redis cache connection.
+    /// Panics if the cache is not configured (e.g. missing REDIS_URL).
+    #[cfg(feature = "worker")]
+    pub fn cache(&self) -> &crate::cache::Cache {
+        self.cache.as_ref().expect("Redis not configured. Set REDIS_URL env var.")
+    }
+
+    /// Enqueue a task message into the background worker system.
+    #[cfg(feature = "worker")]
+    pub async fn enqueue(&self, msg: crate::worker::TaskMessage) -> Result<(), crate::worker::TaskError> {
+        let payload = serde_json::to_string(&msg)?;
+        let key = format!("floz:queue:{}", msg.queue);
+        let mut conn = self.cache().connection();
+        redis::AsyncCommands::lpush::<_, _, ()>(&mut conn, key, payload).await?;
+        Ok(())
     }
 
     /// Retrieve a reference to a custom injected state.
@@ -72,18 +103,28 @@ impl AppContext {
 
     /// Initialize AppContext from environment with auto-detected pool sizing
     /// and injected custom state extensions.
-    #[cfg(feature = "postgres")]
+    #[cfg(any(feature = "postgres", feature = "sqlite"))]
     pub async fn init(extensions: HashMap<TypeId, Box<dyn Any + Send + Sync>>) -> Self {
         let config = Config::from_env();
         let worker_count = std::thread::available_parallelism()
             .map(std::num::NonZeroUsize::get)
             .unwrap_or(1);
+            
+        #[cfg(feature = "postgres")]
         let db_pool = crate::db::pg_pool(worker_count).await;
+        
+        #[cfg(all(feature = "sqlite", not(feature = "postgres")))]
+        let db_pool = crate::db::sqlite_pool().await;
+
+        #[cfg(feature = "worker")]
+        let cache = crate::cache::Cache::from_env().await.expect("Failed to initialize Redis cache");
 
         Self {
             db_pool,
             config,
             extensions: Arc::new(extensions),
+            #[cfg(feature = "worker")]
+            cache,
         }
     }
 }

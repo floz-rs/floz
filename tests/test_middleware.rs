@@ -24,7 +24,12 @@ async fn test_cors_integration_preflight() {
 
     let app = init_service(
         App::new()
-            .wrap(Cors::permissive())
+            .middleware(floz::middleware::FlozPipeline::new(
+                floz::middleware::Stack {
+                    inner: floz::middleware::EmptyStack,
+                    outer: Cors::permissive()
+                }
+            ))
             .route("/", web::get().to(|| async { HttpResponse::Ok() }))
     ).await;
 
@@ -47,7 +52,12 @@ async fn test_cors_integration_request() {
 
     let app = init_service(
         App::new()
-            .wrap(Cors::permissive())
+            .middleware(floz::middleware::FlozPipeline::new(
+                floz::middleware::Stack {
+                    inner: floz::middleware::EmptyStack,
+                    outer: Cors::permissive()
+                }
+            ))
             .route("/", web::get().to(|| async { HttpResponse::Ok() }))
     ).await;
 
