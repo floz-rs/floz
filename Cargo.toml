@@ -1,6 +1,6 @@
 [package]
 name = "floz"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "A batteries-included MVC web framework for Rust — built on ntex + Floz"
 license = "MIT"
