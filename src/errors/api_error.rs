@@ -148,6 +148,7 @@ impl From<anyhow::Error> for ApiError {
     }
 }
 
+#[cfg(any(feature = "postgres", feature = "sqlite"))]
 impl From<sqlx::Error> for ApiError {
     fn from(err: sqlx::Error) -> Self {
         match err {

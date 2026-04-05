@@ -30,7 +30,6 @@ pub struct AppContext {
 
 impl AppContext {
     /// Create a new AppContext with the given pool and config.
-    #[cfg(any(feature = "postgres", feature = "sqlite"))]
     pub fn new(
         #[cfg(feature = "postgres")] db_pool: crate::db::PgDbPool,
         #[cfg(all(feature = "sqlite", not(feature = "postgres")))] db_pool: crate::db::SqliteDbPool,
@@ -38,6 +37,9 @@ impl AppContext {
         extensions: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
     ) -> Self {
         Self {
+            #[cfg(feature = "postgres")]
+            db_pool,
+            #[cfg(all(feature = "sqlite", not(feature = "postgres")))]
             db_pool,
             config,
             extensions: Arc::new(extensions),
@@ -103,9 +105,10 @@ impl AppContext {
 
     /// Initialize AppContext from environment with auto-detected pool sizing
     /// and injected custom state extensions.
-    #[cfg(any(feature = "postgres", feature = "sqlite"))]
     pub async fn init(extensions: HashMap<TypeId, Box<dyn Any + Send + Sync>>) -> Self {
         let config = Config::from_env();
+        
+        #[cfg(any(feature = "postgres", feature = "sqlite"))]
         let worker_count = std::thread::available_parallelism()
             .map(std::num::NonZeroUsize::get)
             .unwrap_or(1);
@@ -120,6 +123,9 @@ impl AppContext {
         let cache = crate::cache::Cache::from_env().await.expect("Failed to initialize Redis cache");
 
         Self {
+            #[cfg(feature = "postgres")]
+            db_pool,
+            #[cfg(all(feature = "sqlite", not(feature = "postgres")))]
             db_pool,
             config,
             extensions: Arc::new(extensions),
