@@ -1,0 +1,64 @@
+[package]
+name = "examples"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+tokio = { version = "1", features = ["full", "macros"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres"] }
+chrono = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+ntex = { workspace = true }
+utoipa = { workspace = true }
+floz = { path = "../floz" }
+floz_orm = { workspace = true }
+
+# ─── Raw SQLx Direct Query Examples ─────────────────────
+# (Shows how to use SQL explicitly without the ORM)
+
+[[bin]]
+name = "sqlx_basic_crud"
+path = "src/bin/sqlx/basic_crud.rs"
+
+[[bin]]
+name = "sqlx_advanced_query"
+path = "src/bin/sqlx/advanced_query.rs"
+
+[[bin]]
+name = "sqlx_relationships"
+path = "src/bin/sqlx/relationships.rs"
+
+# ─── Pure ORM Examples ──────────────────────────────────
+# (Shows how to use floz-orm's DAO and true DSL APIs)
+
+[[bin]]
+name = "orm_dao"
+path = "src/bin/orm/dao.rs"
+
+[[bin]]
+name = "orm_dsl"
+path = "src/bin/orm/dsl.rs"
+
+
+# ─── API Examples ───────────────────────────────────────
+
+[[bin]]
+name = "api_minimal"
+path = "src/bin/api/minimal_api.rs"
+
+[[bin]]
+name = "api_schema"
+path = "src/bin/api/schema_api.rs"
+
+[[bin]]
+name = "api_shared_db"
+path = "src/bin/api/shared_db.rs"
+
+# ─── Middleware Examples ────────────────────────────────
+
+[[bin]]
+name = "middleware_pipeline"
+path = "src/bin/middleware/pipeline.rs"
+

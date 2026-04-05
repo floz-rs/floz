@@ -3,7 +3,6 @@
 //! This is the floz equivalent of Django's settings + connection pool.
 
 use crate::config::Config;
-use crate::db::DbPool;
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -14,8 +13,9 @@ use std::sync::Arc;
 /// framework-level context that apps can extend.
 #[derive(Clone)]
 pub struct AppContext {
-    /// Database connection pool
-    pub db_pool: DbPool,
+    /// Database connection pool (PostgreSQL)
+    #[cfg(feature = "postgres")]
+    pub db_pool: crate::db::PgDbPool,
     /// Application configuration
     pub config: Config,
     /// Custom application state extensions
@@ -24,11 +24,16 @@ pub struct AppContext {
 
 impl AppContext {
     /// Create a new AppContext with the given pool and config.
-    pub fn new(db_pool: DbPool, config: Config, extensions: HashMap<TypeId, Box<dyn Any + Send + Sync>>) -> Self {
-        Self { 
-            db_pool, 
-            config, 
-            extensions: Arc::new(extensions), 
+    #[cfg(feature = "postgres")]
+    pub fn new(
+        db_pool: crate::db::PgDbPool,
+        config: Config,
+        extensions: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
+    ) -> Self {
+        Self {
+            db_pool,
+            config,
+            extensions: Arc::new(extensions),
         }
     }
 
@@ -42,15 +47,19 @@ impl AppContext {
     ///     HttpResponse::Ok().json(&notes)
     /// }
     /// ```
+    #[cfg(feature = "postgres")]
     pub fn db(&self) -> floz_orm::Db {
-        floz_orm::Db::from_pool((*self.db_pool).clone())
+        floz_orm::Db::from_pg_pool((*self.db_pool).clone())
     }
 
     /// Retrieve a reference to a custom injected state.
     /// Panics if the state is not available.
     pub fn ext<T: 'static>(&self) -> &T {
         self.try_ext::<T>().unwrap_or_else(|| {
-            panic!("Requested state extension {} was not injected via App::with()", std::any::type_name::<T>())
+            panic!(
+                "Requested state extension {} was not injected via App::with()",
+                std::any::type_name::<T>()
+            )
         })
     }
 
@@ -63,17 +72,18 @@ impl AppContext {
 
     /// Initialize AppContext from environment with auto-detected pool sizing
     /// and injected custom state extensions.
+    #[cfg(feature = "postgres")]
     pub async fn init(extensions: HashMap<TypeId, Box<dyn Any + Send + Sync>>) -> Self {
         let config = Config::from_env();
         let worker_count = std::thread::available_parallelism()
             .map(std::num::NonZeroUsize::get)
             .unwrap_or(1);
-        let db_pool = crate::db::pool(worker_count).await;
+        let db_pool = crate::db::pg_pool(worker_count).await;
 
-        Self { 
-            db_pool, 
-            config, 
-            extensions: Arc::new(extensions), 
+        Self {
+            db_pool,
+            config,
+            extensions: Arc::new(extensions),
         }
     }
 }

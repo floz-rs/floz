@@ -22,6 +22,12 @@ pub use crate::errors::{ApiError, ErrorCode};
 pub type State = crate::web::State<AppContext>;
 
 // Database
+#[cfg(feature = "postgres")]
+pub use crate::db::{PgDbPool, pg_pool};
+#[cfg(feature = "sqlite")]
+pub use crate::db::{SqliteDbPool, sqlite_pool};
+// Legacy alias when only postgres is enabled
+#[cfg(all(feature = "postgres", not(feature = "sqlite")))]
 pub use crate::db::{DbPool, pool};
 
 // Controller

@@ -1,3 +1,5 @@
+#![cfg(any(feature = "postgres", feature = "sqlite"))]
+
 use floz::db::PoolOptions;
 
 #[test]

@@ -2,17 +2,23 @@
 //!
 //! These functions execute raw SQL and convert results to typed Rust structs
 //! via JSON serialization. For type-safe queries, use Floz's schema! macro instead.
+//!
+//! Currently gated behind the `postgres` feature. For SQLite, use the ORM
+//! `Db` / `Executor` API instead.
 
-use crate::db::DbPool;
 use crate::errors::ApiError;
 use sqlx::{Column, Row};
 use tracing::info;
+
+#[cfg(feature = "postgres")]
+use crate::db::PgDbPool;
 
 /// Execute a query and deserialize results into type `T`.
 ///
 /// Converts each row to a JSON object, then deserializes into the target type.
 /// This is the "escape hatch" for dynamic SQL — prefer Floz for type-safe queries.
-pub async fn execute_query<T>(query: String, pool: &DbPool) -> Result<T, ApiError>
+#[cfg(feature = "postgres")]
+pub async fn execute_query<T>(query: String, pool: &PgDbPool) -> Result<T, ApiError>
 where
     T: serde::de::DeserializeOwned + serde::Serialize + std::fmt::Debug,
 {
@@ -48,7 +54,8 @@ where
 }
 
 /// Execute a query and return results as a JSON string.
-pub async fn execute_query_json(query: String, pool: &DbPool) -> Result<String, ApiError> {
+#[cfg(feature = "postgres")]
+pub async fn execute_query_json(query: String, pool: &PgDbPool) -> Result<String, ApiError> {
     match sqlx::query(&query).fetch_all(pool.as_ref()).await {
         Ok(rows) => {
             let mut results = Vec::new();
@@ -71,7 +78,8 @@ pub async fn execute_query_json(query: String, pool: &DbPool) -> Result<String, 
 }
 
 /// Execute a query expecting exactly one row, deserialize into type `T`.
-pub async fn execute_one_query<T>(query: String, pool: &DbPool) -> Result<T, ApiError>
+#[cfg(feature = "postgres")]
+pub async fn execute_one_query<T>(query: String, pool: &PgDbPool) -> Result<T, ApiError>
 where
     T: serde::de::DeserializeOwned + serde::Serialize + std::fmt::Debug,
 {

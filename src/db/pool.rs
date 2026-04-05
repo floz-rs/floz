@@ -1,12 +1,10 @@
-//! SQLx PostgreSQL connection pool management.
+//! SQLx connection pool management.
+//!
+//! Supports PostgreSQL and SQLite via feature flags.
+//! The pool type is determined by the `DATABASE_URL` scheme at runtime.
 
-use sqlx::postgres::PgPoolOptions;
-use sqlx::{Pool, Postgres};
 use std::sync::Arc;
 use std::time::Duration;
-
-/// Type alias for the shared database pool.
-pub type DbPool = Arc<Pool<Postgres>>;
 
 /// Options for configuring the database connection pool.
 pub struct PoolOptions {
@@ -29,12 +27,17 @@ impl Default for PoolOptions {
     }
 }
 
-/// Create a database connection pool with automatic sizing based on CPU cores.
-///
-/// # Arguments
-/// * `worker_count` — Number of workers to size the pool for.
-///   Pass `0` to auto-detect from CPU count.
-pub async fn pool(worker_count: usize) -> DbPool {
+// ═══════════════════════════════════════════════════════════════
+// PostgreSQL pool
+// ═══════════════════════════════════════════════════════════════
+
+/// Type alias for the shared PostgreSQL pool.
+#[cfg(feature = "postgres")]
+pub type PgDbPool = Arc<sqlx::Pool<sqlx::Postgres>>;
+
+/// Create a PostgreSQL connection pool with automatic sizing based on CPU cores.
+#[cfg(feature = "postgres")]
+pub async fn pg_pool(worker_count: usize) -> PgDbPool {
     let count = if worker_count == 0 {
         std::thread::available_parallelism()
             .map(std::num::NonZeroUsize::get)
@@ -48,15 +51,16 @@ pub async fn pool(worker_count: usize) -> DbPool {
         ..Default::default()
     };
 
-    pool_with_options(&opts).await
+    pg_pool_with_options(&opts).await
 }
 
-/// Create a database connection pool with custom options.
-pub async fn pool_with_options(opts: &PoolOptions) -> DbPool {
+/// Create a PostgreSQL connection pool with custom options.
+#[cfg(feature = "postgres")]
+pub async fn pg_pool_with_options(opts: &PoolOptions) -> PgDbPool {
     let database_url = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "postgres://localhost:5432/app".to_string());
 
-    let pg_pool = PgPoolOptions::new()
+    let pool = sqlx::postgres::PgPoolOptions::new()
         .min_connections(opts.min_connections)
         .max_connections(opts.max_connections)
         .acquire_timeout(Duration::from_secs(opts.acquire_timeout_secs))
@@ -64,7 +68,72 @@ pub async fn pool_with_options(opts: &PoolOptions) -> DbPool {
         .max_lifetime(Duration::from_secs(opts.max_lifetime_secs))
         .connect(&database_url)
         .await
-        .expect("Failed to create database connection pool");
+        .expect("Failed to create PostgreSQL connection pool");
 
-    Arc::new(pg_pool)
+    Arc::new(pool)
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SQLite pool
+// ═══════════════════════════════════════════════════════════════
+
+/// Type alias for the shared SQLite pool.
+#[cfg(feature = "sqlite")]
+pub type SqliteDbPool = Arc<sqlx::Pool<sqlx::Sqlite>>;
+
+/// Create a SQLite connection pool.
+///
+/// If `DATABASE_URL` is set and starts with `sqlite:`, that URL is used.
+/// Otherwise falls back to `sqlite::memory:`.
+#[cfg(feature = "sqlite")]
+pub async fn sqlite_pool() -> SqliteDbPool {
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "sqlite::memory:".to_string());
+
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect(&database_url)
+        .await
+        .expect("Failed to create SQLite connection pool");
+
+    Arc::new(pool)
+}
+
+/// Create a SQLite connection pool with custom options.
+#[cfg(feature = "sqlite")]
+pub async fn sqlite_pool_with_options(opts: &PoolOptions) -> SqliteDbPool {
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "sqlite::memory:".to_string());
+
+    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(opts.max_connections)
+        .acquire_timeout(Duration::from_secs(opts.acquire_timeout_secs))
+        .idle_timeout(Duration::from_secs(opts.idle_timeout_secs))
+        .max_lifetime(Duration::from_secs(opts.max_lifetime_secs))
+        .connect(&database_url)
+        .await
+        .expect("Failed to create SQLite connection pool");
+
+    Arc::new(pool)
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Legacy aliases (when only postgres is enabled)
+// ═══════════════════════════════════════════════════════════════
+
+/// Type alias for backwards compatibility — resolves to `PgDbPool` when
+/// only the `postgres` feature is enabled.
+#[cfg(all(feature = "postgres", not(feature = "sqlite")))]
+pub type DbPool = PgDbPool;
+
+/// Legacy pool builder — creates a PostgreSQL pool.
+#[cfg(all(feature = "postgres", not(feature = "sqlite")))]
+pub async fn pool(worker_count: usize) -> DbPool {
+    pg_pool(worker_count).await
+}
+
+/// Legacy pool builder with options — creates a PostgreSQL pool.
+#[cfg(all(feature = "postgres", not(feature = "sqlite")))]
+pub async fn pool_with_options(opts: &PoolOptions) -> DbPool {
+    pg_pool_with_options(opts).await
 }
