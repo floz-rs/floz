@@ -10,7 +10,6 @@ use std::sync::Arc;
 /// Provides typed get/set with JSON, and basic Redis commands.
 #[derive(Clone)]
 pub struct Cache {
-    client: redis::Client,
     conn: Arc<MultiplexedConnection>,
 }
 
@@ -20,7 +19,6 @@ impl Cache {
         let client = redis::Client::open(url)?;
         let conn = client.get_multiplexed_async_connection().await?;
         Ok(Self {
-            client,
             conn: Arc::new(conn),
         })
     }

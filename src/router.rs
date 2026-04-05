@@ -89,7 +89,7 @@ pub fn print_route_table() {
 
     // Sort by tag (grouped), then by path
     entries.sort_by(|a, b| {
-        let tag_cmp = a.tag.unwrap_or("~").cmp(&b.tag.unwrap_or("~"));
+        let tag_cmp = a.tag.unwrap_or("~").cmp(b.tag.unwrap_or("~"));
         if tag_cmp == std::cmp::Ordering::Equal {
             a.path.cmp(b.path)
         } else {
@@ -99,14 +99,13 @@ pub fn print_route_table() {
 
     println!();
     println!(
-        "  {:<8} {:<28} {:<18} {:<6} {:<10} {}",
-        "METHOD", "PATH", "TAG", "AUTH", "RATE", "DESCRIPTION"
+        "  {:<8} {:<28} {:<18} {:<6} {:<10} DESCRIPTION",
+        "METHOD", "PATH", "TAG", "AUTH", "RATE"
     );
     println!(
-        "  {:<8} {:<28} {:<18} {:<6} {:<10} {}",
+        "  {:<8} {:<28} {:<18} {:<6} {:<10} ───────────────────────────────",
         "──────", "────────────────────────────",
-        "──────────────────", "──────", "──────────",
-        "───────────────────────────────"
+        "──────────────────", "──────", "──────────"
     );
 
     for entry in &entries {
@@ -182,7 +181,7 @@ pub fn generate_openapi() -> utoipa::openapi::OpenApi {
         }
 
         // 3. Build Operation
-        let op_id = entry.path.replace('/', "_").replace(':', "_");
+        let op_id = entry.path.replace(['/', ':'], "_");
         let mut op = OperationBuilder::new()
             .operation_id(Some(op_id))
             .responses(responses);

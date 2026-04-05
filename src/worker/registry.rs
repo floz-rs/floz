@@ -41,7 +41,7 @@ inventory::collect!(TaskEntry);
 pub fn find_task(name: &str) -> Option<&'static dyn TaskDef> {
     for entry in inventory::iter::<TaskEntry> {
         if entry.inner.name() == name {
-            return Some(&*entry.inner);
+            return Some(entry.inner);
         }
     }
     None

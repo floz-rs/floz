@@ -54,8 +54,8 @@ pub use utoipa;
 // Framework Aliases & Wrappers
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/// The floz async entry point, hiding ntex::main
-pub use ntex::main;
+/// The floz async entry point
+pub use floz_macros::main;
 
 /// Web constructs (Path, Json, Request/Response, etc.)
 pub mod web {
