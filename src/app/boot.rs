@@ -183,14 +183,17 @@ impl<M: Process> App<M> {
 
         #[cfg(feature = "worker")]
         if let Some(concurrency) = self.background_worker_concurrency {
-            let redis_url = config.redis_url.clone().expect("REDIS_URL must be set to run background workers");
-            let broker = std::sync::Arc::new(crate::worker::RedisBroker::new(&redis_url).await.expect("Failed to connect worker to Redis"));
-            let worker = crate::worker::Worker::new(ctx.clone(), broker).concurrency(concurrency);
-            tokio::spawn(async move {
-                if let Err(e) = worker.run().await {
-                    tracing::error!("Background worker failed: {:?}", e);
-                }
-            });
+            if let Some(redis_url) = config.redis_url.clone() {
+                let broker = std::sync::Arc::new(crate::worker::RedisBroker::new(&redis_url).await.expect("Failed to connect worker to Redis"));
+                let worker = crate::worker::Worker::new(ctx.clone(), broker).concurrency(concurrency);
+                tokio::spawn(async move {
+                    if let Err(e) = worker.run().await {
+                        tracing::error!("Background worker failed: {:?}", e);
+                    }
+                });
+            } else {
+                tracing::warn!("App::with_worker() was called but REDIS_URL is not set. Background workers are disabled.");
+            }
         }
 
         // Get addr before moving middlewares out

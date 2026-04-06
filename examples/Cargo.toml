@@ -18,7 +18,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 ntex = { workspace = true }
 utoipa = { workspace = true }
-floz = { path = "..", features = ["full", "postgres"] }
+floz = { path = "../", features = ["full", "postgres"] }
 floz_orm = { workspace = true }
 
 # ─── Raw SQLx Direct Query Examples ─────────────────────

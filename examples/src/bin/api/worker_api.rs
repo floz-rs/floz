@@ -72,10 +72,6 @@ async fn register_user(state: floz::ntex::web::types::State<AppContext>, req: Js
 
 #[floz::main]
 async fn main() -> std::io::Result<()> {
-    // A redis instance is required! You can use docker:
-    // docker run -p 6379:6379 -d redis
-    std::env::set_var("REDIS_URL", "redis://127.0.0.1:6379");
-    
     // Ensure you use the App builder with `.with_worker()`
     App::new()
         .with_worker(2) // Start 2 concurrent worker threads fetching from queues

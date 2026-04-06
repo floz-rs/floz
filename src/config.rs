@@ -53,7 +53,7 @@ impl Config {
         dotenvy::dotenv().ok();
 
         Self {
-            database_url: env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
+            database_url: env::var("DATABASE_URL").unwrap_or_else(|_| "".to_string()),
             host: env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),
             port: env::var("PORT").unwrap_or_else(|_| "3030".to_string()),
             server_env: env::var("SERVER_ENV").unwrap_or_else(|_| "DEV".to_string()),

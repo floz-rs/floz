@@ -34,25 +34,24 @@ impl RedisBroker {
     pub async fn dequeue(
         &self,
         queues: &[String],
-        timeout_secs: usize,
+        _timeout_secs: usize, // No longer blocking via redis natively
     ) -> Result<Option<TaskMessage>, TaskError> {
         let mut conn = self.conn.clone();
         
-        // Build the BRPOP queue list
-        let mut keys = Vec::with_capacity(queues.len());
+        // RPOP pops from the right, one queue at a time
         for q in queues {
-            keys.push(Self::queue_key(q));
-        }
+            let key = Self::queue_key(q);
+            let reply: Option<String> = conn.rpop(&key, None).await?;
 
-        // BRPOP removes and returns the last element of the list (pop from right)
-        // Format of reply: (queue_name, value)
-        let reply: Option<(String, String)> = conn.brpop(&keys, timeout_secs as f64).await?;
-
-        if let Some((_, payload)) = reply {
-            let msg: TaskMessage = serde_json::from_str(&payload)?;
-            Ok(Some(msg))
-        } else {
-            Ok(None)
+            if let Some(payload) = reply {
+                let msg: TaskMessage = serde_json::from_str(&payload)?;
+                return Ok(Some(msg));
+            }
         }
+        
+        // If all queues are empty, wait to prevent CPU spin
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        
+        Ok(None)
     }
 }

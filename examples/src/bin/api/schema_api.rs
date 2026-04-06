@@ -56,10 +56,6 @@ async fn protected_route() -> Resp {
 
 #[floz::main]
 async fn main() -> std::io::Result<()> {
-    if std::env::var("DATABASE_URL").is_err() {
-        std::env::set_var("DATABASE_URL", "postgres://localhost:5432/floz1");
-    }
-
     App::new()
         .server(ServerConfig::new().with_default_port(8080))
         .run()

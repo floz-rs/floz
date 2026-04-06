@@ -31,10 +31,6 @@ async fn health() -> Resp {
 
 #[floz::main]
 async fn main() -> std::io::Result<()> {
-    if std::env::var("DATABASE_URL").is_err() {
-        std::env::set_var("DATABASE_URL", "postgres://localhost:5432/floz1");
-    }
-
     App::new()
         .run()
         .await
