@@ -1,9 +1,9 @@
 # Floz
 
-A batteries-included Rust framework for building web APIs and tools on PostgreSQL.
+The Laravel of Rust. Built on Ntex for bare-metal speeds, loved for its Zero-Cost ORM and O(1) Auth macros. A batteries-included framework serving 85k API req/sec with less than 7% overhead versus raw optimized kernels.
 Welcome to the **Floz** full-stack Rust web framework workspace!
 
-This repository contains the `floz` core web framework, the integrated `floz-orm`, macros, CLI scaffolding utilities, and the terminal TUI database editor.
+This repository contains the `floz` core web framework, the integrated zero-cost `floz-orm`, routing macros, zero-dependency WebSocket channels, CLI scaffolding utilities, and a terminal TUI database editor.
 
 ## Workspace
 
@@ -41,21 +41,27 @@ async fn main() -> std::io::Result<()> {
 ```rust
 use floz::prelude::*;
 
-floz::schema! {
-    model User("users") {
-        id:    integer("id").auto_increment().primary(),
-        name:  varchar("name", 100),
-        email: text("email").unique(),
-        age:   short("age").nullable(),
-        active: bool("active"),
-    }
+#[model("users")]
+pub struct User {
+    #[col(key, auto)]
+    pub id: i32,
+    #[col(max_length = 100)]
+    pub name: String,
+    #[col(unique)]
+    pub email: String,
+    #[col]
+    pub age: Option<i16>,
+    #[col]
+    pub active: bool,
+    #[col]
+    pub deleted_at: Option<chrono::DateTime<chrono::Utc>>, // Auto-enables Soft Deletes!
 }
 ```
 
 This generates:
-- `pub struct User` — with `id: i32`, `name: String`, `email: String`, `age: Option<i16>`, `active: bool`
+- `pub struct User` — with `id: i32`, `name: String`, `email: String`, `age: Option<i16>`, `active: bool`, `deleted_at: Option<DateTime<Utc>>`
 - `pub struct UserTable` — with typed `Column<T>` constants for DSL queries
-- DAO methods: `create()`, `get()`, `find()`, `save()`, `delete()`, `all()`, `filter()`
+- DAO methods: `create()`, `get()`, `find()`, `save()`, `delete()`, `all()`, `filter()` (All automatically scoped to non-deleted records!)
 - Dirty-tracking setters: `set_name()`, `set_email()`, etc.
 
 ### CRUD Operations
@@ -200,74 +206,36 @@ my_app/
 - **Zero-Config Discovery**: By exposing your apps inside `src/app/mod.rs`, Floz's `#[route]` macro automatically scans everything traversing downwards at compile-time. You never have to manually map out paths or maintain a central routing table!
 - **Separation of Concerns**: Isolating shared `middleware` at the root ensures your core app business logic remains pure and modular.
 
-## Schema DSL Reference
+## Database Engines
 
-### Column Types
+Floz's macro-driven ORM officially supports multiple backends. To dictate which underlying backend to compile, simply enable the appropriate Cargo feature. Currently, Postgres and SQLite are functionally complete.
 
-| DSL Function | Rust Type | PostgreSQL Type |
-|---|---|---|
-| `integer("col")` | `i32` | `INTEGER` |
-| `short("col")` | `i16` | `SMALLINT` |
-| `bigint("col")` | `i64` | `BIGINT` |
-| `real("col")` | `f32` | `REAL` |
-| `double("col")` | `f64` | `DOUBLE PRECISION` |
-| `decimal("col", p, s)` | `BigDecimal` | `DECIMAL(p,s)` |
-| `varchar("col", n)` | `String` | `VARCHAR(n)` |
-| `text("col")` | `String` | `TEXT` |
-| `bool("col")` | `bool` | `BOOLEAN` |
-| `date("col")` | `NaiveDate` | `DATE` |
-| `time("col")` | `NaiveTime` | `TIME` |
-| `datetime("col")` | `NaiveDateTime` | `TIMESTAMP` |
-| `datetime("col").tz()` | `DateTime<Utc>` | `TIMESTAMPTZ` |
-| `uuid("col")` | `Uuid` | `UUID` |
-| `binary("col")` | `Vec<u8>` | `BYTEA` |
-| `json("col")` | `serde_json::Value` | `JSON` |
-| `jsonb("col")` | `serde_json::Value` | `JSONB` |
-| `enumeration("col", T)` | `T` | custom enum |
-| `col(Type, "col")` | `Type` | *(custom)* |
-
-### Array Types
-
-| DSL Function | Rust Type | PostgreSQL Type |
-|---|---|---|
-| `text_array("col")` | `Vec<String>` | `TEXT[]` |
-| `int_array("col")` | `Vec<i32>` | `INTEGER[]` |
-| `bigint_array("col")` | `Vec<i64>` | `BIGINT[]` |
-| `uuid_array("col")` | `Vec<Uuid>` | `UUID[]` |
-| `bool_array("col")` | `Vec<bool>` | `BOOLEAN[]` |
-
-### Modifiers
-
-| Modifier | Effect |
-|---|---|
-| `.primary()` | PRIMARY KEY |
-| `.auto_increment()` | Excluded from INSERT (DB-assigned) |
-| `.nullable()` | Wraps type in `Option<T>` |
-| `.unique()` | UNIQUE constraint |
-| `.default("expr")` | DEFAULT expression |
-| `.now()` | DEFAULT now() |
-| `.tz()` | WITH TIME ZONE (DateTime only) |
-
-### Table Constraints
-
-```rust
-model PostTag("post_tags") {
-    post_id: integer("post_id"),
-    tag_id:  integer("tag_id"),
-    @primary_key(post_id, tag_id),  // composite PK
-    @unique(post_id, tag_id),       // composite unique
-    @index(post_id),                // index
-}
+```toml
+# In Cargo.toml
+[dependencies]
+floz = { version = "0.1", features = ["postgres"] } # Default choice
+# Or switch to SQLite:
+# floz = { version = "0.1", features = ["sqlite"] }
 ```
 
-### Relationships
+### Environment Configuration (`.env`)
 
-```rust
-model User("users") {
-    id: integer("id").primary(),
-    posts: array(Post, "author_id"),  // one-to-many
-}
+Floz's `Config` engine natively looks for a `DATABASE_URL` during the app bootstrap to instantiate the connection pools transparently:
+
+#### For PostgreSQL
+```env
+# .env
+DATABASE_URL="postgres://user:password@localhost/mydb"
 ```
+
+#### For SQLite
+```env
+# .env
+# File-backed local storage
+DATABASE_URL="sqlite://./data.db"
+```
+*(When using SQLite, ensure the local DB footprint path physically exists or use the `floz-cli` database initiation sequences!)*
+
 
 ## Running Examples
 

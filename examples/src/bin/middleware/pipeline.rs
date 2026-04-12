@@ -150,8 +150,7 @@ async fn main() -> std::io::Result<()> {
                 .with_middleware(Cors::permissive())
                 // 2. Tracing — log every request/response
                 .with_middleware(RequestTrace::default())
-                // 3. Compression — gzip large responses
-                .with_middleware(Compression::gzip())
+
                 // 4. Auth — reject unauthorized requests
                 .with_middleware(BearerAuth::new("my-secret-token"))
                 // 5. Timer — add X-Powered-By header

@@ -64,10 +64,10 @@ macro_rules! pp {
 #[macro_export]
 macro_rules! xquery {
     ($sql:expr) => {
-        sqlx::query($sql)
+        floz_orm::sqlx::query($sql)
     };
     ($sql:expr, $($param:expr),*) => {
-        sqlx::query($sql)
+        floz_orm::sqlx::query($sql)
             $(.bind($param))*
     };
 }
@@ -81,7 +81,7 @@ macro_rules! xquery {
 macro_rules! to_json {
     ($row:expr) => {{
         use serde_json::Value;
-        use sqlx::{Column, Row};
+        use floz_orm::sqlx::{Column, Row};
         let mut map = serde_json::Map::new();
         let columns = $row.columns();
         for column in columns {

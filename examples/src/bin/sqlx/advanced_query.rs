@@ -1,12 +1,16 @@
+use floz::prelude::*;
 use floz::{Db, SelectQuery, Executor};
 
-floz::schema! {
-    model Product("products") {
-        id:         integer("id").auto_increment().primary(),
-        name:       varchar("name", 100),
-        price:      real("price"),
-        in_stock:   bool("in_stock").default("true"),
-    }
+
+#[model("products")]
+pub struct Product {
+    #[col(auto, key)]
+    pub id: i32,
+    #[col(max = 100)]
+    pub name: Varchar,
+    pub price: f32,
+    #[col(default = "true")]
+    pub in_stock: bool,
 }
 
 #[tokio::main]

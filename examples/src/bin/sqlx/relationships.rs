@@ -1,18 +1,24 @@
 use floz::prelude::*;
 use floz::Db;
 
-floz::schema! {
-    model Author("authors") {
-        id:    integer("id").auto_increment().primary(),
-        name:  varchar("name", 100),
-        books: array(Book, "author_id"),
-    }
 
-    model Book("books") {
-        id:        integer("id").auto_increment().primary(),
-        title:     varchar("title", 200),
-        author_id: integer("author_id"),
-    }
+#[model("authors")]
+pub struct Author {
+    #[col(auto, key)]
+    pub id: i32,
+    #[col(max = 100)]
+    pub name: Varchar,
+    #[rel(has_many(model = "Book", foreign_key = "author_id"))]
+    pub books: Vec<Book>,
+}
+
+#[model("books")]
+pub struct Book {
+    #[col(auto, key)]
+    pub id: i32,
+    #[col(max = 200)]
+    pub title: Varchar,
+    pub author_id: i32,
 }
 
 #[tokio::main]
@@ -60,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("All authors with loaded books:");
     for author in &all_authors {
-        let loaded_books = &author._rel_books;
+        let loaded_books = &author.books;
         println!("  - Author: {}", author.name);
         for b in loaded_books {
             println!("      - '{}'", b.title);

@@ -27,7 +27,7 @@ async fn test_cors_integration_preflight() {
             .middleware(floz::middleware::FlozPipeline::new(
                 floz::middleware::Stack {
                     inner: floz::middleware::EmptyStack,
-                    outer: Cors::permissive()
+                    outer: floz::middleware::SyncLayer(Cors::permissive())
                 }
             ))
             .route("/", web::get().to(|| async { HttpResponse::Ok() }))
@@ -55,7 +55,7 @@ async fn test_cors_integration_request() {
             .middleware(floz::middleware::FlozPipeline::new(
                 floz::middleware::Stack {
                     inner: floz::middleware::EmptyStack,
-                    outer: Cors::permissive()
+                    outer: floz::middleware::SyncLayer(Cors::permissive())
                 }
             ))
             .route("/", web::get().to(|| async { HttpResponse::Ok() }))

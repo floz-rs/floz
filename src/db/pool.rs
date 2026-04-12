@@ -2,6 +2,9 @@
 //!
 //! Supports PostgreSQL and SQLite via feature flags.
 //! The pool type is determined by the `DATABASE_URL` scheme at runtime.
+//!
+//! All sqlx access goes through `floz_orm::sqlx` — the floz crate
+//! does not depend on sqlx directly.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -33,7 +36,7 @@ impl Default for PoolOptions {
 
 /// Type alias for the shared PostgreSQL pool.
 #[cfg(feature = "postgres")]
-pub type PgDbPool = Arc<sqlx::Pool<sqlx::Postgres>>;
+pub type PgDbPool = Arc<floz_orm::sqlx::Pool<floz_orm::sqlx::Postgres>>;
 
 /// Create a PostgreSQL connection pool with automatic sizing based on CPU cores.
 #[cfg(feature = "postgres")]
@@ -59,13 +62,19 @@ pub async fn pg_pool(worker_count: usize) -> PgDbPool {
 pub async fn pg_pool_with_options(opts: &PoolOptions) -> PgDbPool {
     let database_url = std::env::var("DATABASE_URL").unwrap_or_default();
     let conn_url = if database_url.is_empty() {
-        tracing::error!("DATABASE_URL is not set! Database connections will fail if accessed.");
+        let is_prod = std::env::var("SERVER_ENV")
+            .map(|v| v.eq_ignore_ascii_case("PROD"))
+            .unwrap_or(false);
+        if is_prod {
+            panic!("DATABASE_URL is not set! Refusing to start in production without a database.");
+        }
+        tracing::warn!("⚠️  DATABASE_URL is not set — using localhost fallback. Set DATABASE_URL for production.");
         "postgres://localhost:5432/app"
     } else {
         &database_url
     };
 
-    let pool = sqlx::postgres::PgPoolOptions::new()
+    let pool = floz_orm::sqlx::postgres::PgPoolOptions::new()
         .min_connections(opts.min_connections)
         .max_connections(opts.max_connections)
         .acquire_timeout(Duration::from_secs(opts.acquire_timeout_secs))
@@ -83,7 +92,7 @@ pub async fn pg_pool_with_options(opts: &PoolOptions) -> PgDbPool {
 
 /// Type alias for the shared SQLite pool.
 #[cfg(feature = "sqlite")]
-pub type SqliteDbPool = Arc<sqlx::Pool<sqlx::Sqlite>>;
+pub type SqliteDbPool = Arc<floz_orm::sqlx::Pool<floz_orm::sqlx::Sqlite>>;
 
 /// Create a SQLite connection pool.
 ///
@@ -93,13 +102,19 @@ pub type SqliteDbPool = Arc<sqlx::Pool<sqlx::Sqlite>>;
 pub async fn sqlite_pool() -> SqliteDbPool {
     let database_url = std::env::var("DATABASE_URL").unwrap_or_default();
     let conn_url = if database_url.is_empty() {
-        tracing::error!("DATABASE_URL is not set! SQLite database features will fail if accessed.");
+        let is_prod = std::env::var("SERVER_ENV")
+            .map(|v| v.eq_ignore_ascii_case("PROD"))
+            .unwrap_or(false);
+        if is_prod {
+            panic!("DATABASE_URL is not set! Refusing to start in production without a database.");
+        }
+        tracing::warn!("⚠️  DATABASE_URL is not set — using in-memory SQLite. Set DATABASE_URL for production.");
         "sqlite::memory:"
     } else {
         &database_url
     };
 
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+    let pool = floz_orm::sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(5)
         .connect_lazy(conn_url)
         .expect("Invalid SQLite connection URL format");
@@ -112,13 +127,19 @@ pub async fn sqlite_pool() -> SqliteDbPool {
 pub async fn sqlite_pool_with_options(opts: &PoolOptions) -> SqliteDbPool {
     let database_url = std::env::var("DATABASE_URL").unwrap_or_default();
     let conn_url = if database_url.is_empty() {
-        tracing::error!("DATABASE_URL is not set! SQLite database features will fail if accessed.");
+        let is_prod = std::env::var("SERVER_ENV")
+            .map(|v| v.eq_ignore_ascii_case("PROD"))
+            .unwrap_or(false);
+        if is_prod {
+            panic!("DATABASE_URL is not set! Refusing to start in production without a database.");
+        }
+        tracing::warn!("⚠️  DATABASE_URL is not set — using in-memory SQLite. Set DATABASE_URL for production.");
         "sqlite::memory:"
     } else {
         &database_url
     };
 
-    let pool = sqlx::sqlite::SqlitePoolOptions::new()
+    let pool = floz_orm::sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(opts.max_connections)
         .acquire_timeout(Duration::from_secs(opts.acquire_timeout_secs))
         .idle_timeout(Duration::from_secs(opts.idle_timeout_secs))

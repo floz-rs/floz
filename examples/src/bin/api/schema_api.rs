@@ -48,7 +48,7 @@ async fn get_user(
     get: "/protected",
     tag: "Protected",
     resps: [(200, "Success")],
-    wrap: [floz::web::middleware::Logger::default()]
+    middleware: [floz::web::middleware::Logger::default()]
 )]
 async fn protected_route() -> Resp {
     Resp::Ok().body("Accessed protected route")

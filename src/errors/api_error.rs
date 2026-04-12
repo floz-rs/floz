@@ -99,6 +99,38 @@ impl std::fmt::Display for ApiError {
 
 impl std::error::Error for ApiError {}
 
+impl ntex::web::WebResponseError for ApiError {
+    fn error_response(&self, _: &ntex::web::HttpRequest) -> ntex::web::HttpResponse {
+        use ntex::http::StatusCode;
+        
+        let status_code = match self.code {
+            ErrorCode::BadRequest => StatusCode::BAD_REQUEST,
+            ErrorCode::NotFound => StatusCode::NOT_FOUND,
+            ErrorCode::Forbidden => StatusCode::FORBIDDEN,
+            ErrorCode::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
+            ErrorCode::InvalidUUID => StatusCode::BAD_REQUEST,
+            ErrorCode::JwtError => StatusCode::UNAUTHORIZED,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        };
+
+        // In production, redact internal error details from 5xx responses
+        // to prevent information leakage (table names, SQL errors, etc.)
+        let is_prod = std::env::var("SERVER_ENV")
+            .map(|v| v.eq_ignore_ascii_case("PROD"))
+            .unwrap_or(false);
+
+        if is_prod && status_code.is_server_error() {
+            tracing::error!(code = ?self.code, message = %self.message, "Internal server error (redacted from response)");
+            ntex::web::HttpResponse::build(status_code).json(&ApiError {
+                code: ErrorCode::InternalServerError,
+                message: "An internal error occurred.".to_string(),
+            })
+        } else {
+            ntex::web::HttpResponse::build(status_code).json(&self)
+        }
+    }
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // From conversions
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -149,86 +181,86 @@ impl From<anyhow::Error> for ApiError {
 }
 
 #[cfg(any(feature = "postgres", feature = "sqlite"))]
-impl From<sqlx::Error> for ApiError {
-    fn from(err: sqlx::Error) -> Self {
+impl From<floz_orm::sqlx::Error> for ApiError {
+    fn from(err: floz_orm::sqlx::Error) -> Self {
         match err {
-            sqlx::Error::Configuration(e) => ApiError {
+            floz_orm::sqlx::Error::Configuration(e) => ApiError {
                 code: ErrorCode::Configuration,
                 message: format!("Database configuration error: {e}"),
             },
-            sqlx::Error::Database(e) => ApiError {
+            floz_orm::sqlx::Error::Database(e) => ApiError {
                 code: ErrorCode::Database,
                 message: format!("Database error: {e}"),
             },
-            sqlx::Error::Io(e) => ApiError {
+            floz_orm::sqlx::Error::Io(e) => ApiError {
                 code: ErrorCode::Io,
                 message: format!("I/O error: {e}"),
             },
-            sqlx::Error::Tls(e) => ApiError {
+            floz_orm::sqlx::Error::Tls(e) => ApiError {
                 code: ErrorCode::Tls,
                 message: format!("TLS error: {e}"),
             },
-            sqlx::Error::Protocol(e) => ApiError {
+            floz_orm::sqlx::Error::Protocol(e) => ApiError {
                 code: ErrorCode::Protocol,
                 message: format!("Protocol error: {e}"),
             },
-            sqlx::Error::RowNotFound => ApiError {
+            floz_orm::sqlx::Error::RowNotFound => ApiError {
                 code: ErrorCode::RowNotFound,
                 message: "The requested row was not found".to_string(),
             },
-            sqlx::Error::TypeNotFound { type_name } => ApiError {
+            floz_orm::sqlx::Error::TypeNotFound { type_name } => ApiError {
                 code: ErrorCode::TypeNotFound,
                 message: format!("Type not found: {type_name}"),
             },
-            sqlx::Error::ColumnIndexOutOfBounds { index, len } => ApiError {
+            floz_orm::sqlx::Error::ColumnIndexOutOfBounds { index, len } => ApiError {
                 code: ErrorCode::ColumnIndexOutOfBounds,
                 message: format!("Column index {index} is out of bounds (columns: {len})"),
             },
-            sqlx::Error::ColumnNotFound(column) => ApiError {
+            floz_orm::sqlx::Error::ColumnNotFound(column) => ApiError {
                 code: ErrorCode::ColumnNotFound,
                 message: format!("Column not found: {column}"),
             },
-            sqlx::Error::ColumnDecode { index, source } => ApiError {
+            floz_orm::sqlx::Error::ColumnDecode { index, source } => ApiError {
                 code: ErrorCode::ColumnDecode,
                 message: format!("Failed to decode column {index}: {source}"),
             },
-            sqlx::Error::Decode(e) => ApiError {
+            floz_orm::sqlx::Error::Decode(e) => ApiError {
                 code: ErrorCode::Decode,
                 message: format!("Decode error: {e}"),
             },
-            sqlx::Error::PoolTimedOut => ApiError {
+            floz_orm::sqlx::Error::PoolTimedOut => ApiError {
                 code: ErrorCode::PoolTimedOut,
                 message: "Connection pool timed out".to_string(),
             },
-            sqlx::Error::PoolClosed => ApiError {
+            floz_orm::sqlx::Error::PoolClosed => ApiError {
                 code: ErrorCode::PoolClosed,
                 message: "Connection pool is closed".to_string(),
             },
-            sqlx::Error::WorkerCrashed => ApiError {
+            floz_orm::sqlx::Error::WorkerCrashed => ApiError {
                 code: ErrorCode::WorkerCrashed,
                 message: "Database worker thread crashed".to_string(),
             },
-            sqlx::Error::Migrate(e) => ApiError {
+            floz_orm::sqlx::Error::Migrate(e) => ApiError {
                 code: ErrorCode::Migrate,
                 message: format!("Migration error: {e}"),
             },
-            sqlx::Error::InvalidArgument(e) => ApiError {
+            floz_orm::sqlx::Error::InvalidArgument(e) => ApiError {
                 code: ErrorCode::InvalidArgument,
                 message: format!("Invalid argument: {e}"),
             },
-            sqlx::Error::Encode(e) => ApiError {
+            floz_orm::sqlx::Error::Encode(e) => ApiError {
                 code: ErrorCode::Encode,
                 message: format!("Encode error: {e}"),
             },
-            sqlx::Error::AnyDriverError(e) => ApiError {
+            floz_orm::sqlx::Error::AnyDriverError(e) => ApiError {
                 code: ErrorCode::AnyDriverError,
                 message: format!("Driver error: {e}"),
             },
-            sqlx::Error::InvalidSavePointStatement => ApiError {
+            floz_orm::sqlx::Error::InvalidSavePointStatement => ApiError {
                 code: ErrorCode::InvalidSavePointStatement,
                 message: "Invalid save point statement".to_string(),
             },
-            sqlx::Error::BeginFailed => ApiError {
+            floz_orm::sqlx::Error::BeginFailed => ApiError {
                 code: ErrorCode::BeginFailed,
                 message: "Failed to begin transaction".to_string(),
             },

@@ -113,6 +113,27 @@ impl Cache {
         redis::cmd("FLUSHDB").query_async(&mut conn).await
     }
 
+    /// Associate a cache key with a specific dependency tag.
+    pub async fn add_tag(&self, tag: &str, cache_key: &str) -> redis::RedisResult<()> {
+        let mut conn = self.conn.as_ref().clone();
+        let set_key = format!("floz:cache:tags:{}", tag);
+        conn.sadd(&set_key, cache_key).await
+    }
+
+    /// Drop all cache keys associated with a tag, then drop the tag itself.
+    pub async fn drop_by_tag(&self, tag: &str) -> redis::RedisResult<()> {
+        let mut conn = self.conn.as_ref().clone();
+        let set_key = format!("floz:cache:tags:{}", tag);
+        
+        let members: Vec<String> = conn.smembers(&set_key).await?;
+        if !members.is_empty() {
+            // Redis DEL takes an array of keys
+            conn.del::<_, ()>(&members).await?;
+        }
+        conn.del::<_, ()>(&set_key).await?;
+        Ok(())
+    }
+
     /// Get a cloned connection matching `MultiplexedConnection` for advanced commands.
     pub fn connection(&self) -> MultiplexedConnection {
         self.conn.as_ref().clone()

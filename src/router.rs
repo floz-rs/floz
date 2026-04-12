@@ -36,10 +36,22 @@ pub struct RouteEntry {
     pub register: fn(&mut ntex::web::ServiceConfig),
     /// Response specifications for OpenAPI docs
     pub responses: &'static [ResponseMeta],
-    /// Auth requirement: "jwt", "api_key", or "none"
+    /// Authorization requirement (e.g. "required", "optional", "none")
     pub auth: Option<&'static str>,
+    /// Array of string permissions required to access the route
+    pub permissions: Option<&'static [&'static str]>,
     /// Rate limit: e.g. "100/min", "10/sec"
     pub rate: Option<&'static str>,
+    /// Request schema function (optional)
+    pub req_body_schema_fn: Option<SchemaFn>,
+    /// Whether this endpoint supports standard PaginationParams (adds query args to OpenAPI docs)
+    pub is_paginated: bool,
+    /// Whether this endpoint accepts the ?preload query parameter
+    pub has_preload: bool,
+    /// Optional cache TTL in seconds 
+    pub cache_ttl: Option<u64>,
+    /// Optional list of table-dependent tags to auto-invalidate this cache
+    pub cache_watch: Option<&'static [&'static str]>,
 }
 
 impl RouteEntry {
@@ -52,14 +64,41 @@ impl RouteEntry {
         register: fn(&mut ntex::web::ServiceConfig),
         responses: &'static [ResponseMeta],
         auth: Option<&'static str>,
+        permissions: Option<&'static [&'static str]>,
         rate: Option<&'static str>,
+        req_body_schema_fn: Option<SchemaFn>,
+        is_paginated: bool,
+        has_preload: bool,
+        cache_ttl: Option<u64>,
+        cache_watch: Option<&'static [&'static str]>,
     ) -> Self {
-        Self { method, path, tag, desc, register, responses, auth, rate }
+        Self { method, path, tag, desc, register, responses, auth, permissions, rate, req_body_schema_fn, is_paginated, has_preload, cache_ttl, cache_watch }
     }
 }
 
 // Tell inventory to collect RouteEntry instances across the binary.
 inventory::collect!(RouteEntry);
+
+/// Translate `:param` style path segments to `{param}` for ntex pattern matching.
+fn translate_path(path: &str) -> String {
+    let mut result = String::with_capacity(path.len());
+    let mut chars = path.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == ':' {
+            result.push('{');
+            while let Some(&next) = chars.peek() {
+                if next == '/' || next == '.' || next == '-' {
+                    break;
+                }
+                result.push(chars.next().unwrap());
+            }
+            result.push('}');
+        } else {
+            result.push(ch);
+        }
+    }
+    result
+}
 
 /// Register all auto-discovered `#[route]` handlers with ntex.
 ///
@@ -73,6 +112,102 @@ pub fn register_all(cfg: &mut ntex::web::ServiceConfig) {
 /// Get all registered routes as a collected Vec.
 pub fn all_routes() -> Vec<&'static RouteEntry> {
     inventory::iter::<RouteEntry>.into_iter().collect()
+}
+
+/// Lightweight cache metadata extracted from a `RouteEntry`.
+///
+/// Stored in a shared `HashMap` and looked up by the `CacheMiddleware`
+/// on every request to determine if/how to cache the response.
+#[derive(Clone, Debug)]
+pub struct CacheRouteInfo {
+    /// Original path pattern with `:param` syntax (e.g. "/users/:id")
+    pub path_pattern: &'static str,
+    /// Cache TTL in seconds
+    pub ttl: u64,
+    /// Table dependency tags for invalidation (e.g. ["users", "users:{id}"])
+    pub watch: Vec<&'static str>,
+}
+
+/// Build a lookup map of `"METHOD /ntex/path/{pattern}"` → `CacheRouteInfo`
+/// for all routes that have `cache_ttl` configured.
+///
+/// Called once during `App::run()` and injected into `AppContext`.
+pub fn build_cache_route_map() -> std::collections::HashMap<String, CacheRouteInfo> {
+    let mut map = std::collections::HashMap::new();
+    for entry in inventory::iter::<RouteEntry> {
+        if let Some(ttl) = entry.cache_ttl {
+            let ntex_path = translate_path(entry.path);
+            let key = format!("{} {}", entry.method.to_uppercase(), ntex_path);
+            let watch = entry.cache_watch
+                .map(|tags| tags.to_vec())
+                .unwrap_or_default();
+            map.insert(key, CacheRouteInfo {
+                path_pattern: entry.path,
+                ttl,
+                watch,
+            });
+        }
+    }
+    map
+}
+
+/// Security metadata extracted from a `RouteEntry`.
+///
+/// Looked up by `AuthMiddleware` to enforce route protections.
+#[derive(Clone, Debug)]
+pub struct RouteSecurityRule {
+    /// E.g. "jwt", "api_key", or None (anonymous)
+    pub auth: Option<&'static str>,
+    /// Any required permissions strings
+    pub permissions: Vec<&'static str>,
+}
+
+/// Type alias for the shared security route map injected into ntex app state.
+pub type SecurityRouteMap = std::sync::Arc<std::collections::HashMap<String, RouteSecurityRule>>;
+
+/// Build a lookup map of `"METHOD /ntex/path/{pattern}"` → `RouteSecurityRule`
+/// for all routes that have `auth` or `permissions` configured.
+///
+/// Called once during `App::run()` and injected into the ntex app state.
+pub fn build_security_route_map() -> std::collections::HashMap<String, RouteSecurityRule> {
+    let mut map = std::collections::HashMap::new();
+    for entry in inventory::iter::<RouteEntry> {
+        if entry.auth.is_some() || entry.permissions.is_some() {
+            let ntex_path = translate_path(entry.path);
+            let key = format!("{} {}", entry.method.to_uppercase(), ntex_path);
+            let permissions = entry.permissions
+                .map(|p| p.to_vec())
+                .unwrap_or_default();
+            map.insert(key, RouteSecurityRule {
+                auth: entry.auth,
+                permissions,
+            });
+        }
+    }
+    map
+}
+
+/// Type alias for the shared rate limit route map injected into ntex app state.
+pub type RateLimitRouteMap = std::sync::Arc<std::collections::HashMap<String, String>>;
+
+/// Build a lookup map of `"METHOD /ntex/path/{pattern}"` → `String` (rate limit string)
+/// for all routes that have `rate` configured. Alternatively falls back to the global
+/// rate limit if defined.
+///
+/// Called once during `App::run()` and injected into the ntex app state.
+pub fn build_rate_limit_route_map(global_rate_limit: Option<String>) -> std::collections::HashMap<String, String> {
+    let mut map = std::collections::HashMap::new();
+    for entry in inventory::iter::<RouteEntry> {
+        let ntex_path = translate_path(entry.path);
+        let key = format!("{} {}", entry.method.to_uppercase(), ntex_path);
+        
+        if let Some(rate) = entry.rate {
+            map.insert(key, rate.to_string());
+        } else if let Some(global) = &global_rate_limit {
+            map.insert(key, global.clone());
+        }
+    }
+    map
 }
 
 /// Print all registered routes to stdout.
@@ -159,17 +294,20 @@ pub fn generate_openapi() -> utoipa::openapi::OpenApi {
                 let mut components_list = Vec::new();
                 let (root_name, root_schema) = schema_fn(&mut components_list);
                 
-                // Construct the JSON content referring to this root schema component
-                let ref_path = format!("#/components/schemas/{}", root_name);
-                let content = ContentBuilder::new()
-                    .schema(Some(utoipa::openapi::schema::Ref::new(ref_path)))
-                    .build();
+                let content = if root_name.is_empty() {
+                    ContentBuilder::new()
+                        .schema(Some(root_schema))
+                        .build()
+                } else {
+                    let ref_path = format!("#/components/schemas/{}", root_name);
+                    components = components.schema(root_name, root_schema);
+                    ContentBuilder::new()
+                        .schema(Some(utoipa::openapi::schema::Ref::new(ref_path)))
+                        .build()
+                };
 
                 // Bind to application/json as default mapping
                 resp = resp.content("application/json", content);
-
-                // Register root schema
-                components = components.schema(root_name, root_schema);
 
                 // Register all nested exported schemas deeply into OpenAPI components payload
                 for (name, schema) in components_list {
@@ -181,10 +319,39 @@ pub fn generate_openapi() -> utoipa::openapi::OpenApi {
         }
 
         // 3. Build Operation
-        let op_id = entry.path.replace(['/', ':'], "_");
+        let clean_path = entry.path.replace(['/', ':', '{', '}'], "_");
+        let op_id = format!("{}_{}", entry.method, clean_path);
         let mut op = OperationBuilder::new()
             .operation_id(Some(op_id))
             .responses(responses);
+
+        if let Some(schema_fn) = entry.req_body_schema_fn {
+            let mut components_list = Vec::new();
+            let (root_name, root_schema) = schema_fn(&mut components_list);
+            
+            let content = if root_name.is_empty() {
+                ContentBuilder::new()
+                    .schema(Some(root_schema))
+                    .build()
+            } else {
+                let ref_path = format!("#/components/schemas/{}", root_name);
+                components = components.schema(root_name, root_schema);
+                ContentBuilder::new()
+                    .schema(Some(utoipa::openapi::schema::Ref::new(ref_path)))
+                    .build()
+            };
+                
+            let request_body = utoipa::openapi::request_body::RequestBodyBuilder::new()
+                .content("application/json", content)
+                .required(Some(utoipa::openapi::Required::True))
+                .build();
+                
+            op = op.request_body(Some(request_body));
+            
+            for (name, schema) in components_list {
+                components = components.schema(name, schema);
+            }
+        }
 
         if let Some(desc) = entry.desc {
             op = op.description(Some(desc));
@@ -192,6 +359,50 @@ pub fn generate_openapi() -> utoipa::openapi::OpenApi {
 
         if let Some(tag) = entry.tag {
             op = op.tag(tag);
+        }
+
+        if entry.is_paginated {
+            use ::utoipa::openapi::path::{ParameterBuilder, ParameterIn};
+            use ::utoipa::openapi::schema::{ObjectBuilder, SchemaType, Type};
+            
+            op = op.parameter(
+                ParameterBuilder::new()
+                    .name("limit")
+                    .parameter_in(ParameterIn::Query)
+                    .description(Some("Maximum number of results to return (default 10)"))
+                    .schema(Some(ObjectBuilder::new().schema_type(Type::Integer).build()))
+                    .build()
+            );
+            op = op.parameter(
+                ParameterBuilder::new()
+                    .name("offset")
+                    .parameter_in(ParameterIn::Query)
+                    .description(Some("Number of results to skip (default 0)"))
+                    .schema(Some(ObjectBuilder::new().schema_type(Type::Integer).build()))
+                    .build()
+            );
+            op = op.parameter(
+                ParameterBuilder::new()
+                    .name("order_by")
+                    .parameter_in(ParameterIn::Query)
+                    .description(Some("Order direction, e.g., 'created_at -desc'"))
+                    .schema(Some(ObjectBuilder::new().schema_type(Type::String).build()))
+                    .build()
+            );
+        }
+
+        if entry.has_preload {
+            use ::utoipa::openapi::path::{ParameterBuilder, ParameterIn};
+            use ::utoipa::openapi::schema::{ObjectBuilder, Type};
+            
+            op = op.parameter(
+                ParameterBuilder::new()
+                    .name("preload")
+                    .parameter_in(ParameterIn::Query)
+                    .description(Some("Comma-separated list of relationships to eager load (e.g., 'user_roles,posts')"))
+                    .schema(Some(ObjectBuilder::new().schema_type(Type::String).build()))
+                    .build()
+            );
         }
 
         // Handle path parameters for openapi: transform :id to {id}
@@ -236,31 +447,89 @@ pub fn generate_openapi() -> utoipa::openapi::OpenApi {
         .build()
 }
 
-/// A simple, standalone Swagger UI HTML page that pulls the OpenAPI spec from `/api-docs/openapi.json`.
-pub const SWAGGER_UI_HTML: &str = r#"
+/// Bundled Swagger UI JavaScript bundle (embedded at compile time).
+pub const SWAGGER_UI_BUNDLE_JS: &str = include_str!("swagger-ui-dist/swagger-ui-bundle.js");
+
+/// Bundled Swagger UI CSS (embedded at compile time).
+pub const SWAGGER_UI_CSS: &str = include_str!("swagger-ui-dist/swagger-ui.css");
+
+/// A simple, standalone Swagger UI HTML page that loads assets from local routes.
+///
+/// All JavaScript and CSS are served from `/api-docs/` paths — no external CDN dependencies.
+pub const SWAGGER_UI_HTML_TEMPLATE: &str = r#"
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Floz API Docs</title>
-    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+    <link rel="stylesheet" href="/api-docs/swagger-ui.css" />
     <style>
-      body { margin: 0; box-sizing: border-box; }
+      body { margin: 0; box-sizing: border-box; transition: background-color 0.3s; }
       #swagger-ui { max-width: 1200px; margin: 0 auto; }
+    </style>
+    <style id="dark-theme-style" media="not all">
+{DARK_THEME_CSS}
     </style>
   </head>
   <body>
+    <!-- Theme Toggler -->
+    <div style="position: absolute; top: 15px; right: 20px; z-index: 1000; font-family: sans-serif;">
+      <select id="theme-select" style="padding: 6px; border-radius: 4px; background: #2d2d2d; color: #b3b3b3; border: 1px solid #404040; cursor: pointer;">
+        <option value="system">Auto (System)</option>
+        <option value="light">Day</option>
+        <option value="dark">Night</option>
+      </select>
+    </div>
+
     <div id="swagger-ui"></div>
-    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
+    <script src="/api-docs/swagger-ui-bundle.js"></script>
     <script>
+      function applyTheme(theme) {
+        let isDark = false;
+        if (theme === 'dark') {
+          isDark = true;
+        } else if (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          isDark = true;
+        }
+
+        const darkStyle = document.getElementById('dark-theme-style');
+        if (isDark) {
+          darkStyle.media = 'all';
+          document.body.style.backgroundColor = '#1f1f1f';
+        } else {
+          darkStyle.media = 'not all';
+          document.body.style.backgroundColor = '#ffffff';
+        }
+        localStorage.setItem('swagger-theme-pref', theme);
+      }
+
       window.onload = () => {
         window.ui = SwaggerUIBundle({
           url: '/api-docs/openapi.json',
           dom_id: '#swagger-ui',
+        });
+
+        // Initialize Theme
+        const themeSelect = document.getElementById('theme-select');
+        const savedTheme = localStorage.getItem('swagger-theme-pref') || 'system';
+        themeSelect.value = savedTheme;
+        applyTheme(savedTheme);
+
+        // Listen for user changes
+        themeSelect.addEventListener('change', (e) => {
+          applyTheme(e.target.value);
+        });
+
+        // Listen for system preference changes if 'system' is selected
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+          if (themeSelect.value === 'system') {
+            applyTheme('system');
+          }
         });
       };
     </script>
   </body>
 </html>
 "#;
+

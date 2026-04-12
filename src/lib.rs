@@ -44,6 +44,13 @@ pub mod controller;
 pub mod macros;
 pub mod router;
 
+// Validation — used by #[model] macro codegen
+pub use controller::validate::ValidationErrors;
+pub use controller::validate::validators;
+
+// Testing utilities — always available
+pub mod testing;
+
 // Re-export external crates used by macros
 pub use inventory;
 #[doc(hidden)]
@@ -58,15 +65,7 @@ pub use utoipa;
 pub use floz_macros::main;
 
 /// Web constructs (Path, Json, Request/Response, etc.)
-pub mod web {
-    pub use ntex::web::{
-        self,
-        middleware,
-        types::{Path, Json, Query, Payload, State},
-        Error, HttpRequest, HttpResponse, HttpResponseBuilder
-    };
-    pub use ntex::http::{header, StatusCode};
-}
+pub mod web;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Feature-gated modules
@@ -75,6 +74,7 @@ pub mod middleware;
 
 #[cfg(feature = "auth")]
 pub mod auth;
+pub mod session;
 
 #[cfg(feature = "worker")]
 pub mod worker;

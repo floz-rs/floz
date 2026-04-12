@@ -5,7 +5,7 @@
 //! ```
 
 // Core app
-pub use crate::app::{App, AppContext};
+pub use crate::app::{App, AppContext, Context, RequestContext, AuthInfo};
 pub use crate::config::Config;
 pub use crate::errors::{ApiError, ErrorCode};
 
@@ -33,17 +33,23 @@ pub use crate::db::{DbPool, pool};
 // Controller
 pub use crate::controller::pagination::PaginationParams;
 pub use crate::controller::format::JsonResponse;
+pub use crate::controller::validate::ValidationErrors;
 
 // Server
 pub use crate::server::ServerConfig;
 
 // Middleware
 pub use crate::middleware::Middleware;
+pub use crate::middleware::AsyncMiddleware;
+pub use crate::middleware::CacheMiddleware;
+pub use crate::middleware::SessionMiddleware;
+pub use crate::middleware::AuthMiddleware;
 pub use crate::middleware::cors::Cors;
-pub use crate::middleware::trace::RequestTrace;
+pub use crate::middleware::trace::{RequestTrace, RequestId};
+pub use crate::middleware::SecurityHeaders;
+pub use crate::middleware::RateLimitMiddleware;
+pub use crate::middleware::CsrfMiddleware;
 
-#[cfg(feature = "compression")]
-pub use crate::middleware::compression::Compression;
 
 #[cfg(feature = "logger")]
 pub use crate::logger::HttpLogger;
@@ -58,12 +64,21 @@ pub use crate::cache::Cache;
 // Macros
 pub use crate::{echo, res, pp, xquery};
 
+// Web Sub-modules (WS & Upload)
+pub use crate::web;
+
 // Route macro — the `#[route(...)]` attribute
 pub use floz_macros::route;
+
+// Model macro — the `#[model("table")]` attribute
+pub use floz_macros::model;
 
 // Task macro
 #[cfg(feature = "worker")]
 pub use floz_macros::task;
+
+// Channel Gate macro
+pub use floz_macros::channel_gate;
 
 // Framework HTTP & Web constructs
 pub use crate::main;
@@ -83,3 +98,4 @@ pub use serde::{Deserialize, Serialize};
 pub use serde_json::{json, Value};
 
 pub use tracing::{info, warn, error, debug, trace};
+pub use floz_macros::embed_migrations;

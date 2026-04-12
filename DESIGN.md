@@ -29,8 +29,9 @@ crates together.
 ### Non-Goals
 
 - Being framework-agnostic (floz is opinionated about ntex)
-- Supporting every database (PostgreSQL only, via SQLx)
-- Replacing raw SQL for analytics queries (use `xquery!()` or `execute_query()`)
+- Supporting every database (PostgreSQL and SQLite are supported, MySQL is not a priority)
+- Replacing raw SQL for complex analytics queries (use `xquery!()` or `execute_query()`)
+- Providing built-in View/Template Engines, Mailers, or Cloud Storage APIs. We intentionally leave these to specialized third-party crates, which can be effortlessly injected into the application state via `AppContext::ext::<T>()`.
 
 ---
 
@@ -140,23 +141,21 @@ floz/src/
 ```toml
 [features]
 default = ["full"]
-full    = ["auth", "worker", "logger", "openapi", "mailer", "storage"]
+full    = ["auth", "worker", "logger", "openapi", "channels"]
 auth    = ["dep:jsonwebtoken", "dep:bcrypt", "dep:sha2", "dep:base64"]
 worker  = ["dep:redis"]
 logger  = ["dep:tracing-appender"]
 openapi = ["dep:utoipa"]
-mailer  = []
-storage = []
+channels = []
 ```
 
-| Feature   | What It Adds                                      | Extra Dependencies               |
-|-----------|---------------------------------------------------|----------------------------------|
-| `auth`    | JWT, API keys, bcrypt hashing                     | jsonwebtoken, bcrypt, sha2       |
-| `worker`  | Background task manager, Redis queues             | redis                            |
-| `logger`  | Daily-rotating file logs via tracing              | tracing-appender                 |
-| `openapi` | utoipa + Swagger UI auto-generation               | utoipa                           |
-| `mailer`  | Email transport abstraction (placeholder)         | —                                |
-| `storage` | File storage abstraction (placeholder)            | —                                |
+| Feature    | What It Adds                                      | Extra Dependencies               |
+|------------|---------------------------------------------------|----------------------------------|
+| `auth`     | JWT, API keys, bcrypt hashing, Auth guards        | jsonwebtoken, bcrypt, sha2       |
+| `worker`   | Background task manager, Redis queues             | redis                            |
+| `logger`   | Daily-rotating file logs via tracing              | tracing-appender                 |
+| `openapi`  | utoipa + Swagger UI auto-generation               | utoipa                           |
+| `channels` | Zero-dependency WebSocket multiplexer             | —                                |
 
 ### 3.3 Dependency Tree
 
@@ -217,7 +216,7 @@ App::run()
   → Fire on_boot hook
   → Generate OpenAPI spec from route metadata
   → Start ntex HttpServer
-    → Mount /docs (Swagger UI) and /api-docs/openapi.json
+    → Mount /ui (Swagger UI) and /api-docs/openapi.json
     → Auto-register all discovered handlers
     → Bind to socket address
     → Serve requests
@@ -339,7 +338,7 @@ let pool: DbPool = pool_with_options(&PoolOptions {
 
 ### 6.2 Dynamic Query Execution
 
-For queries that can't use Floz's typesafe `schema!` macro:
+For queries that can't use Floz's typesafe `#[model]` macro:
 
 ```rust
 // Deserialize into a typed struct
@@ -373,12 +372,14 @@ Floz ORM is re-exported as a first-class dependency:
 // In your models
 use floz::prelude::*;
 
-floz::schema! {
-    model User("users") {
-        id:    integer("id").auto_increment().primary(),
-        name:  varchar("name", 100),
-        email: varchar("email", 255).nullable(),
-    }
+#[model("users")]
+pub struct User {
+    #[col(auto, key)]
+    pub id: i32,
+    #[col(max = 100)]
+    pub name: Varchar,
+    #[col(max = 255)]
+    pub email: Option<Varchar>,
 }
 
 // In your handlers — seamless integration
@@ -787,7 +788,7 @@ async fn admin_stats() -> HttpResponse {
 
 | Endpoint | Purpose |
 |----------|---------|
-| `/docs` | Swagger UI (interactive API docs) |
+| `/ui` | Swagger UI (interactive API docs) |
 | `/api-docs/openapi.json` | Raw OpenAPI 3.0 JSON spec |
 
 ### 13.8 Route Table
@@ -912,7 +913,7 @@ floz generate scaffold Post title:string body:text
 # Generated output:
 # src/app/post/
 #   ├── mod.rs     → pub mod model; pub mod route;
-#   ├── model.rs   → floz::schema! { model Post("posts") { ... } }
+#   ├── model.rs   → #[model("posts")] pub struct Post { ... }
 #   └── route.rs   → #[route(get: "/posts")] + #[route(get: "/posts/:id")]
 
 # Database (coming soon)
@@ -967,39 +968,36 @@ floz db seed
 - [x] App builder with config + boot hooks
 - [x] `#[route(...)]` proc macro — single-annotation route + OpenAPI + auth + rate limiting
 - [x] Auto-discovery via `inventory` — no manual route registration
-- [x] OpenAPI auto-generation from route metadata + Swagger UI at `/docs`
+- [x] OpenAPI auto-generation from route metadata + Swagger UI at `/ui`
 - [x] Route table printing (`FLOZ_PRINT_ROUTES=1` or dev mode)
 - [x] Per-route middleware via `wrap: [...]`
-- [x] AppContext with DB pool + config
-- [x] Environment-driven configuration
+- [x] AppContext with DB pool + config + custom `.ext::<T>()` DI
+- [x] Environment-driven configuration + feature cascade
 - [x] SQLx connection pool with auto-sizing
 - [x] Dynamic SQL query executor
-- [x] Floz ORM integration (re-exported)
+- [x] Floz ORM integration with Auto-Soft Deletes
 - [x] ApiError + ErrorCode with broad `From` conversions
 - [x] CORS middleware (full RFC 6454 compliance)
 - [x] JWT token creation/verification
+- [x] Auth middleware enforcement (`auth: jwt`, `auth: session`)
 - [x] API key generation + bcrypt hashing
 - [x] Tracing with daily log rotation
-- [x] JsonResponse helpers
-- [x] PaginationParams
+- [x] JsonResponse helpers + PaginationParams
 - [x] Utility macros (echo!, res!, pp!, xquery!, to_json!)
-- [x] CLI scaffolding tool
+- [x] CLI scaffolding tool (`floz new`, `floz generate`)
 - [x] Project starter templates (minimal, api, saas)
+- [x] Background worker extraction & Redis scheduling
+- [x] Zero-dependency WebSocket Channels (`#[channel_gate]`)
+- [x] PG LISTEN/NOTIFY bridge natively in handles
 
 ### In Progress 🔄
 
-- [ ] Background worker extraction (Phase 3)
-- [ ] Event queue + Redis cache
-- [ ] PG LISTEN/NOTIFY bridge
-- [ ] HTTP request/response logger middleware
+- [ ] Custom `floz db migrate` runner (no external dependencies)
+- [ ] Declarative response caching middleware (`#[route(..., cache(...))]`)
 
 ### Planned 📋
 
-- [ ] Migration runner (`floz db migrate`)
-- [ ] Rate limiting middleware enforcement
-- [ ] Auth middleware enforcement (`auth: jwt` / `auth: api_key`)
-- [ ] Mailer transport abstraction
-- [ ] File storage abstraction (OpenDAL)
-- [ ] `floz routes` CLI command
-- [ ] REPL console (`floz console`)
+- [ ] Interactive REPL console (`floz console`)
+- [ ] Auto-generated internal Admin Panel UI (`/admin`)
+- [ ] Internationalization (i18n) dictionary loader
 - [ ] Compile-time response type validation

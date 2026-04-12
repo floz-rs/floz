@@ -40,6 +40,10 @@ pub struct PaginationParams {
     /// Search string: `val` or `col1,col2:val`
     #[serde(default)]
     pub search: String,
+    
+    /// Relationships to conditionally expand: `user_roles,posts`
+    #[serde(default)]
+    pub preload: Option<String>,
 
     /// Internal: table name (set by the framework, not by the client)
     #[serde(skip_deserializing)]
@@ -65,6 +69,7 @@ impl Default for PaginationParams {
             order_by: "created".to_string(),
             filter: String::new(),
             search: String::new(),
+            preload: None,
             table: String::new(),
             module_name: String::new(),
             id: String::new(),
@@ -100,6 +105,7 @@ impl PaginationParams {
             order_by: self.order_by.clone(),
             filter: self.filter.clone(),
             search: self.search.clone(),
+            preload: self.preload.clone(),
             table: Self::table_name::<T>(),
             module_name: module_name.to_string(),
             id: String::new(),

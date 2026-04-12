@@ -1,4 +1,5 @@
-//! Controller abstractions — pagination, response formatting, and generic CRUD.
+//! Controller abstractions — pagination, response formatting, validation, and generic CRUD.
 
 pub mod pagination;
 pub mod format;
+pub mod validate;

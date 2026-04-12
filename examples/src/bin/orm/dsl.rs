@@ -10,19 +10,24 @@
 use floz::prelude::*;
 use floz::Db;
 
-floz::schema! {
-    model Product("products") {
-        id:         integer("id").auto_increment().primary(),
-        name:       varchar("name", 100),
-        price:      real("price"),
-        in_stock:   bool("in_stock").default("true"),
-    }
 
-    model Order("orders") {
-        id:         integer("id").auto_increment().primary(),
-        product_id: integer("product_id"),
-        qty:        integer("qty"),
-    }
+#[model("products")]
+pub struct Product {
+    #[col(auto, key)]
+    pub id: i32,
+    #[col(max = 100)]
+    pub name: Varchar,
+    pub price: f32,
+    #[col(default = "true")]
+    pub in_stock: bool,
+}
+
+#[model("orders")]
+pub struct Order {
+    #[col(auto, key)]
+    pub id: i32,
+    pub product_id: i32,
+    pub qty: i32,
 }
 
 #[tokio::main]

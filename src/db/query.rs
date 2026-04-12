@@ -1,13 +1,16 @@
 //! Dynamic SQL query execution utilities.
 //!
-//! These functions execute raw SQL and convert results to typed Rust structs
-//! via JSON serialization. For type-safe queries, use Floz's schema! macro instead.
+//! **⚠️ SECURITY WARNING**: These functions accept raw SQL strings without
+//! parameterization. **Never** interpolate user input into the query string.
+//! Use the ORM's query builder API or `Executor` trait for safe, parameterized queries.
 //!
-//! Currently gated behind the `postgres` feature. For SQLite, use the ORM
-//! `Db` / `Executor` API instead.
+//! These functions are provided as an escape hatch for advanced use cases only.
+//! Prefer Floz's type-safe `SelectQuery`, `InsertQuery`, etc. builders instead.
+//!
+//! All sqlx access goes through `floz_orm::sqlx`.
 
 use crate::errors::ApiError;
-use sqlx::{Column, Row};
+use floz_orm::sqlx::{Column, Row};
 use tracing::info;
 
 #[cfg(feature = "postgres")]
@@ -22,7 +25,7 @@ pub async fn execute_query<T>(query: String, pool: &PgDbPool) -> Result<T, ApiEr
 where
     T: serde::de::DeserializeOwned + serde::Serialize + std::fmt::Debug,
 {
-    match sqlx::query(&query).fetch_all(pool.as_ref()).await {
+    match floz_orm::sqlx::query(&query).fetch_all(pool.as_ref()).await {
         Ok(rows) => {
             let mut results = Vec::new();
             for row in rows {
@@ -56,7 +59,7 @@ where
 /// Execute a query and return results as a JSON string.
 #[cfg(feature = "postgres")]
 pub async fn execute_query_json(query: String, pool: &PgDbPool) -> Result<String, ApiError> {
-    match sqlx::query(&query).fetch_all(pool.as_ref()).await {
+    match floz_orm::sqlx::query(&query).fetch_all(pool.as_ref()).await {
         Ok(rows) => {
             let mut results = Vec::new();
             for row in rows {
@@ -83,7 +86,7 @@ pub async fn execute_one_query<T>(query: String, pool: &PgDbPool) -> Result<T, A
 where
     T: serde::de::DeserializeOwned + serde::Serialize + std::fmt::Debug,
 {
-    match sqlx::query(&query).fetch_one(pool.as_ref()).await {
+    match floz_orm::sqlx::query(&query).fetch_one(pool.as_ref()).await {
         Ok(row) => {
             let mut m = serde_json::Map::new();
             for (i, column) in row.columns().iter().enumerate() {

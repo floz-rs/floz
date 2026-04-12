@@ -1,10 +1,11 @@
 use floz::prelude::*;
 
-schema! {
-    model Note("notes") {
-        id:         integer("id").auto_increment().primary(),
-        content:    text("content"),
-    }
+
+#[model("notes")]
+pub struct Note {
+    #[col(auto, key)]
+    pub id: i32,
+    pub content: Text,
 }
 
 /// Custom application state to demonstrate context extensions

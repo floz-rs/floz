@@ -26,6 +26,8 @@ pub struct AppContext {
     /// Redis cache connection
     #[cfg(feature = "worker")]
     pub cache: Option<crate::cache::Cache>,
+    /// Global WebSockets Channel Broker
+    pub ws_broker: Arc<crate::web::channels::ChannelBroker>,
 }
 
 impl AppContext {
@@ -45,6 +47,7 @@ impl AppContext {
             extensions: Arc::new(extensions),
             #[cfg(feature = "worker")]
             cache: None,
+            ws_broker: Arc::new(crate::web::channels::ChannelBroker::new()),
         }
     }
 
@@ -83,6 +86,13 @@ impl AppContext {
         let mut conn = self.cache().connection();
         redis::AsyncCommands::lpush::<_, _, ()>(&mut conn, key, payload).await?;
         Ok(())
+    }
+
+    /// Broadcast a payload to a WebSocket Channel locally.
+    /// If scaling horizontally, this can be combined with Redis PubSub.
+    pub fn broadcast(&self, channel: &str, payload: &serde_json::Value) {
+        let payload_str = serde_json::to_string(payload).unwrap_or_default();
+        self.ws_broker.broadcast(channel, &payload_str);
     }
 
     /// Retrieve a reference to a custom injected state.
@@ -131,6 +141,7 @@ impl AppContext {
             extensions: Arc::new(extensions),
             #[cfg(feature = "worker")]
             cache,
+            ws_broker: Arc::new(crate::web::channels::ChannelBroker::new()),
         }
     }
 }

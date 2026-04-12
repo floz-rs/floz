@@ -9,14 +9,19 @@
 
 use floz::Db;
 
-floz::schema! {
-    model User("users") {
-        id:         integer("id").auto_increment().primary(),
-        name:       varchar("name", 100),
-        email:      varchar("email", 255).nullable().unique(),
-        age:        short("age"),
-        is_active:  bool("is_active").default("true"),
-    }
+use floz::prelude::*;
+
+#[model("users")]
+pub struct User {
+    #[col(auto, key)]
+    pub id: i32,
+    #[col(max = 100)]
+    pub name: Varchar,
+    #[col(max = 255, unique)]
+    pub email: Option<Varchar>,
+    pub age: i16,
+    #[col(default = "true")]
+    pub is_active: bool,
 }
 
 #[tokio::main]
