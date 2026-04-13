@@ -3,8 +3,8 @@
 //! Loads configuration from environment variables using dotenvy.
 //! Follows Django/Rails convention — environment drives everything.
 
-use std::sync::LazyLock;
 use std::env;
+use std::sync::LazyLock;
 
 /// Global config singleton — initialized once on first access.
 static CONFIG: LazyLock<Config> = LazyLock::new(Config::from_env);
@@ -55,7 +55,7 @@ impl Config {
     pub fn from_env() -> Self {
         // 1. Look ahead for an explicit SERVER_ENV manually
         let server_env = std::env::var("SERVER_ENV").unwrap_or_else(|_| "DEV".to_string());
-        
+
         // 2. Load profile-specific .env.XYZ (won't override process env vars)
         if server_env.eq_ignore_ascii_case("PROD") {
             dotenvy::from_filename(".env.production").ok();

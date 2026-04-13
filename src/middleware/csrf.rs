@@ -1,7 +1,7 @@
 use crate::middleware::Middleware;
-use ntex::web::{HttpRequest, HttpResponse};
+use ntex::http::header::{HeaderValue, COOKIE, SET_COOKIE};
 use ntex::http::{Method, StatusCode};
-use ntex::http::header::{HeaderValue, SET_COOKIE, COOKIE};
+use ntex::web::{HttpRequest, HttpResponse};
 use uuid::Uuid;
 
 /// CSRF Protection Middleware.
@@ -70,11 +70,14 @@ impl Middleware for CsrfMiddleware {
         };
 
         if is_mutating {
-            let header_token = req.headers().get(self.header_name).and_then(|h| h.to_str().ok());
+            let header_token = req
+                .headers()
+                .get(self.header_name)
+                .and_then(|h| h.to_str().ok());
             if header_token != Some(&cookie_token) {
                 return Some(
                     HttpResponse::build(StatusCode::FORBIDDEN)
-                        .body("CSRF validation failed: missing or invalid CSRF token")
+                        .body("CSRF validation failed: missing or invalid CSRF token"),
                 );
             }
         }
@@ -84,7 +87,10 @@ impl Middleware for CsrfMiddleware {
 
     fn response(&self, req: &HttpRequest, mut resp: HttpResponse) -> HttpResponse {
         if let Some(new_token) = req.extensions_mut().remove::<CsrfNewToken>() {
-            let cookie_str = format!("{}={}; Path=/; HttpOnly; SameSite=Lax", self.cookie_name, new_token.0);
+            let cookie_str = format!(
+                "{}={}; Path=/; HttpOnly; SameSite=Lax",
+                self.cookie_name, new_token.0
+            );
             if let Ok(val) = HeaderValue::from_str(&cookie_str) {
                 resp.headers_mut().append(SET_COOKIE, val);
             }

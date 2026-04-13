@@ -106,9 +106,7 @@ impl<'a> TestRequest<'a> {
                 .await
                 .expect("Failed to send test request")
         } else {
-            req.send()
-                .await
-                .expect("Failed to send test request")
+            req.send().await.expect("Failed to send test request")
         };
 
         // Eagerly read all response data — no borrowing needed downstream
@@ -116,11 +114,12 @@ impl<'a> TestRequest<'a> {
         let headers: HashMap<String, String> = response
             .headers()
             .iter()
-            .filter_map(|(k, v)| {
-                v.to_str().ok().map(|val| (k.to_string(), val.to_string()))
-            })
+            .filter_map(|(k, v)| v.to_str().ok().map(|val| (k.to_string(), val.to_string())))
             .collect();
-        let body_bytes = self.app.server.load_body(response)
+        let body_bytes = self
+            .app
+            .server
+            .load_body(response)
             .await
             .expect("Failed to read response body");
 

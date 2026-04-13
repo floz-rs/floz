@@ -7,7 +7,7 @@
 //! - CacheMiddleware integration with ntex test server
 
 use floz::middleware::cache::CacheMiddleware;
-use floz::router::{CacheRouteInfo, build_cache_route_map};
+use floz::router::{build_cache_route_map, CacheRouteInfo};
 use std::collections::HashMap;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -86,11 +86,14 @@ fn test_cache_middleware_default() {
 #[test]
 fn test_route_map_exact_match() {
     let mut map = HashMap::new();
-    map.insert("GET /health".to_string(), CacheRouteInfo {
-        path_pattern: "/health",
-        ttl: 30,
-        watch: vec!["system"],
-    });
+    map.insert(
+        "GET /health".to_string(),
+        CacheRouteInfo {
+            path_pattern: "/health",
+            ttl: 30,
+            watch: vec!["system"],
+        },
+    );
 
     assert!(map.contains_key("GET /health"));
     assert!(!map.contains_key("POST /health"));
@@ -100,11 +103,14 @@ fn test_route_map_exact_match() {
 #[test]
 fn test_route_map_parameterized_pattern() {
     let mut map = HashMap::new();
-    map.insert("GET /users/{id}".to_string(), CacheRouteInfo {
-        path_pattern: "/users/:id",
-        ttl: 600,
-        watch: vec!["users", "users:{id}"],
-    });
+    map.insert(
+        "GET /users/{id}".to_string(),
+        CacheRouteInfo {
+            path_pattern: "/users/:id",
+            ttl: 600,
+            watch: vec!["users", "users:{id}"],
+        },
+    );
 
     // The key uses ntex {param} syntax
     assert!(map.contains_key("GET /users/{id}"));
@@ -115,21 +121,30 @@ fn test_route_map_parameterized_pattern() {
 #[test]
 fn test_route_map_multiple_entries() {
     let mut map = HashMap::new();
-    map.insert("GET /users".to_string(), CacheRouteInfo {
-        path_pattern: "/users",
-        ttl: 300,
-        watch: vec!["users"],
-    });
-    map.insert("GET /users/{id}".to_string(), CacheRouteInfo {
-        path_pattern: "/users/:id",
-        ttl: 600,
-        watch: vec!["users", "users:{id}"],
-    });
-    map.insert("GET /health".to_string(), CacheRouteInfo {
-        path_pattern: "/health",
-        ttl: 30,
-        watch: vec![],
-    });
+    map.insert(
+        "GET /users".to_string(),
+        CacheRouteInfo {
+            path_pattern: "/users",
+            ttl: 300,
+            watch: vec!["users"],
+        },
+    );
+    map.insert(
+        "GET /users/{id}".to_string(),
+        CacheRouteInfo {
+            path_pattern: "/users/:id",
+            ttl: 600,
+            watch: vec!["users", "users:{id}"],
+        },
+    );
+    map.insert(
+        "GET /health".to_string(),
+        CacheRouteInfo {
+            path_pattern: "/health",
+            ttl: 30,
+            watch: vec![],
+        },
+    );
 
     assert_eq!(map.len(), 3);
     assert_eq!(map.get("GET /users").unwrap().ttl, 300);
@@ -217,8 +232,8 @@ fn test_tag_resolution_multiple_params() {
 
 #[ntex::test]
 async fn test_cache_middleware_passthrough_no_cache_routes() {
-    use ntex::web::{self, App, HttpResponse};
     use ntex::web::test::{init_service, TestRequest};
+    use ntex::web::{self, App, HttpResponse};
 
     // Pipeline with CacheMiddleware but no cache route map injected
     // → should pass through cleanly without panicking
@@ -228,10 +243,14 @@ async fn test_cache_middleware_passthrough_no_cache_routes() {
                 floz::middleware::Stack {
                     inner: floz::middleware::EmptyStack,
                     outer: floz::middleware::AsyncLayer(CacheMiddleware),
-                }
+                },
             ))
-            .route("/test", web::get().to(|| async { HttpResponse::Ok().body("hello") }))
-    ).await;
+            .route(
+                "/test",
+                web::get().to(|| async { HttpResponse::Ok().body("hello") }),
+            ),
+    )
+    .await;
 
     let req = TestRequest::get().uri("/test").to_request();
     let resp = ntex::web::test::call_service(&app, req).await;
@@ -240,10 +259,10 @@ async fn test_cache_middleware_passthrough_no_cache_routes() {
 
 #[ntex::test]
 async fn test_cache_middleware_with_empty_route_map() {
-    use ntex::web::{self, App, HttpResponse};
-    use ntex::web::test::{init_service, TestRequest};
-    use std::sync::Arc;
     use floz::middleware::cache::CacheRouteMap;
+    use ntex::web::test::{init_service, TestRequest};
+    use ntex::web::{self, App, HttpResponse};
+    use std::sync::Arc;
 
     // Inject an empty cache route map
     let empty_map: CacheRouteMap = Arc::new(HashMap::new());
@@ -255,14 +274,18 @@ async fn test_cache_middleware_with_empty_route_map() {
                 floz::middleware::Stack {
                     inner: floz::middleware::EmptyStack,
                     outer: floz::middleware::AsyncLayer(CacheMiddleware),
-                }
+                },
             ))
-            .route("/api/data", web::get().to(|| async {
-                HttpResponse::Ok()
-                    .content_type("application/json")
-                    .body(r#"{"data":"fresh"}"#)
-            }))
-    ).await;
+            .route(
+                "/api/data",
+                web::get().to(|| async {
+                    HttpResponse::Ok()
+                        .content_type("application/json")
+                        .body(r#"{"data":"fresh"}"#)
+                }),
+            ),
+    )
+    .await;
 
     let req = TestRequest::get().uri("/api/data").to_request();
     let resp = ntex::web::test::call_service(&app, req).await;
@@ -271,18 +294,21 @@ async fn test_cache_middleware_with_empty_route_map() {
 
 #[ntex::test]
 async fn test_cache_middleware_with_populated_route_map() {
-    use ntex::web::{self, App, HttpResponse};
-    use ntex::web::test::{init_service, TestRequest};
-    use std::sync::Arc;
     use floz::middleware::cache::CacheRouteMap;
+    use ntex::web::test::{init_service, TestRequest};
+    use ntex::web::{self, App, HttpResponse};
+    use std::sync::Arc;
 
     // Build a map that includes a cached route
     let mut map = HashMap::new();
-    map.insert("GET /api/cached".to_string(), CacheRouteInfo {
-        path_pattern: "/api/cached",
-        ttl: 60,
-        watch: vec!["test_table"],
-    });
+    map.insert(
+        "GET /api/cached".to_string(),
+        CacheRouteInfo {
+            path_pattern: "/api/cached",
+            ttl: 60,
+            watch: vec!["test_table"],
+        },
+    );
     let cache_map: CacheRouteMap = Arc::new(map);
 
     let app = init_service(
@@ -292,14 +318,18 @@ async fn test_cache_middleware_with_populated_route_map() {
                 floz::middleware::Stack {
                     inner: floz::middleware::EmptyStack,
                     outer: floz::middleware::AsyncLayer(CacheMiddleware),
-                }
+                },
             ))
-            .route("/api/cached", web::get().to(|| async {
-                HttpResponse::Ok()
-                    .content_type("application/json")
-                    .body(r#"{"data":"cached_response"}"#)
-            }))
-    ).await;
+            .route(
+                "/api/cached",
+                web::get().to(|| async {
+                    HttpResponse::Ok()
+                        .content_type("application/json")
+                        .body(r#"{"data":"cached_response"}"#)
+                }),
+            ),
+    )
+    .await;
 
     // Without Redis, the middleware should pass through (cache miss)
     // and return the handler's response
@@ -310,9 +340,9 @@ async fn test_cache_middleware_with_populated_route_map() {
 
 #[ntex::test]
 async fn test_cache_middleware_combined_with_sync() {
-    use ntex::web::{self, App, HttpResponse};
-    use ntex::web::test::{init_service, TestRequest};
     use floz::middleware::cors::Cors;
+    use ntex::web::test::{init_service, TestRequest};
+    use ntex::web::{self, App, HttpResponse};
 
     // Combine sync Cors + async CacheMiddleware in a single pipeline
     let app = init_service(
@@ -324,10 +354,14 @@ async fn test_cache_middleware_combined_with_sync() {
                         outer: floz::middleware::SyncLayer(Cors::permissive()),
                     },
                     outer: floz::middleware::AsyncLayer(CacheMiddleware),
-                }
+                },
             ))
-            .route("/mixed", web::get().to(|| async { HttpResponse::Ok().body("mixed") }))
-    ).await;
+            .route(
+                "/mixed",
+                web::get().to(|| async { HttpResponse::Ok().body("mixed") }),
+            ),
+    )
+    .await;
 
     let req = TestRequest::get()
         .uri("/mixed")
@@ -337,6 +371,8 @@ async fn test_cache_middleware_combined_with_sync() {
     assert!(resp.status().is_success());
 
     // CORS headers should still be present
-    let cors_header = resp.headers().get(ntex::http::header::ACCESS_CONTROL_ALLOW_ORIGIN);
+    let cors_header = resp
+        .headers()
+        .get(ntex::http::header::ACCESS_CONTROL_ALLOW_ORIGIN);
     assert!(cors_header.is_some());
 }

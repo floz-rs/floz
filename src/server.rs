@@ -3,7 +3,9 @@
 //! `ServerConfig<M>` carries the middleware stack as a generic type parameter.
 //! Each `.with_middleware()` call wraps the type — fully static dispatch.
 
-use crate::middleware::pipeline::{AsyncMiddleware, AsyncLayer, EmptyStack, Middleware, Stack, SyncLayer};
+use crate::middleware::pipeline::{
+    AsyncLayer, AsyncMiddleware, EmptyStack, Middleware, Stack, SyncLayer,
+};
 use std::env;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
@@ -92,7 +94,10 @@ impl<M> ServerConfig<M> {
     ///     .with_async_middleware(JwtAuth::new(secret))      // async
     ///     .with_async_middleware(RateLimiter::new(100))     // async
     /// ```
-    pub fn with_async_middleware<N: AsyncMiddleware>(self, mw: N) -> ServerConfig<Stack<M, AsyncLayer<N>>> {
+    pub fn with_async_middleware<N: AsyncMiddleware>(
+        self,
+        mw: N,
+    ) -> ServerConfig<Stack<M, AsyncLayer<N>>> {
         ServerConfig {
             host_env_key: self.host_env_key,
             port_env_key: self.port_env_key,
@@ -154,7 +159,7 @@ impl<M> ServerConfig<M> {
         self
     }
 
-    /// Set the global fallback rate limit (e.g. "100/min"). 
+    /// Set the global fallback rate limit (e.g. "100/min").
     /// This will be applied to all routes unless they declare a specific override.
     pub fn with_global_rate_limit(mut self, limit: &str) -> Self {
         self.global_rate_limit = Some(limit.to_string());

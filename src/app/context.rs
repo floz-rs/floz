@@ -75,12 +75,17 @@ impl AppContext {
     /// Panics if the cache is not configured (e.g. missing REDIS_URL).
     #[cfg(feature = "worker")]
     pub fn cache(&self) -> &crate::cache::Cache {
-        self.cache.as_ref().expect("Redis not configured. Set REDIS_URL env var.")
+        self.cache
+            .as_ref()
+            .expect("Redis not configured. Set REDIS_URL env var.")
     }
 
     /// Enqueue a task message into the background worker system.
     #[cfg(feature = "worker")]
-    pub async fn enqueue(&self, msg: crate::worker::TaskMessage) -> Result<(), crate::worker::TaskError> {
+    pub async fn enqueue(
+        &self,
+        msg: crate::worker::TaskMessage,
+    ) -> Result<(), crate::worker::TaskError> {
         let payload = serde_json::to_string(&msg)?;
         let key = format!("floz:queue:{}", msg.queue);
         let mut conn = self.cache().connection();
@@ -117,20 +122,22 @@ impl AppContext {
     /// and injected custom state extensions.
     pub async fn init(extensions: HashMap<TypeId, Box<dyn Any + Send + Sync>>) -> Self {
         let config = Config::from_env();
-        
+
         #[cfg(any(feature = "postgres", feature = "sqlite"))]
         let worker_count = std::thread::available_parallelism()
             .map(std::num::NonZeroUsize::get)
             .unwrap_or(1);
-            
+
         #[cfg(feature = "postgres")]
         let db_pool = crate::db::pg_pool(worker_count).await;
-        
+
         #[cfg(all(feature = "sqlite", not(feature = "postgres")))]
         let db_pool = crate::db::sqlite_pool().await;
 
         #[cfg(feature = "worker")]
-        let cache = crate::cache::Cache::from_env().await.expect("Failed to initialize Redis cache");
+        let cache = crate::cache::Cache::from_env()
+            .await
+            .expect("Failed to initialize Redis cache");
 
         Self {
             #[cfg(feature = "postgres")]

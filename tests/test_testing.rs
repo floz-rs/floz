@@ -1,8 +1,8 @@
 use floz::testing::TestApp;
-use ntex::web::{self, HttpResponse};
 use floz_macros::route;
+use ntex::web::{self, HttpResponse};
 
-// Test dummy route 
+// Test dummy route
 #[route(get: "/ping", tag: "Test", desc: "Ping pong")]
 async fn ping() -> HttpResponse {
     HttpResponse::Ok().body("pong")
@@ -24,7 +24,8 @@ async fn test_floz_testing_app() {
 
     // 2. Test POST request with JSON
     let payload = serde_json::json!({"message": "hello test builder"});
-    let resp = app.post("/echo")
+    let resp = app
+        .post("/echo")
         .json(&payload)
         .header("X-Test-Echo", "true")
         .send()

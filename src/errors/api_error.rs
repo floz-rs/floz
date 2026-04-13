@@ -102,7 +102,7 @@ impl std::error::Error for ApiError {}
 impl ntex::web::WebResponseError for ApiError {
     fn error_response(&self, _: &ntex::web::HttpRequest) -> ntex::web::HttpResponse {
         use ntex::http::StatusCode;
-        
+
         let status_code = match self.code {
             ErrorCode::BadRequest => StatusCode::BAD_REQUEST,
             ErrorCode::NotFound => StatusCode::NOT_FOUND,

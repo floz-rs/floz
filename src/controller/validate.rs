@@ -131,8 +131,8 @@ impl From<ValidationErrors> for crate::errors::ApiError {
 /// `#[model]` macro codegen. These are internal implementation details —
 /// users never call these directly.
 pub mod validators {
-    use std::sync::LazyLock;
     use regex::Regex;
+    use std::sync::LazyLock;
 
     /// Simple email validation: checks for `local@domain.tld` format.
     ///
@@ -147,9 +147,8 @@ pub mod validators {
 
     /// Simple URL validation: checks for `scheme://host` format.
     pub fn is_url(value: &str) -> bool {
-        static RE: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"^https?://[^\s/$.?#].[^\s]*$").unwrap()
-        });
+        static RE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"^https?://[^\s/$.?#].[^\s]*$").unwrap());
         RE.is_match(value)
     }
 

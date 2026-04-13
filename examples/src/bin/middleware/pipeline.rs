@@ -61,13 +61,10 @@ impl Middleware for BearerAuth {
 
         match auth {
             Some(t) if t == self.token => None, // valid — continue
-            _ => Some(
-                Resp::Unauthorized()
-                    .json(&json!({
-                        "error": "unauthorized",
-                        "message": "Invalid or missing bearer token"
-                    })),
-            ),
+            _ => Some(Resp::Unauthorized().json(&json!({
+                "error": "unauthorized",
+                "message": "Invalid or missing bearer token"
+            }))),
         }
     }
 
@@ -150,7 +147,6 @@ async fn main() -> std::io::Result<()> {
                 .with_middleware(Cors::permissive())
                 // 2. Tracing — log every request/response
                 .with_middleware(RequestTrace::default())
-
                 // 4. Auth — reject unauthorized requests
                 .with_middleware(BearerAuth::new("my-secret-token"))
                 // 5. Timer — add X-Powered-By header

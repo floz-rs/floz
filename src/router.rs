@@ -8,8 +8,14 @@
 ///
 /// Created by the `#[route]` proc macro from `resps: [...]`.
 type SchemaFn = fn(
-    &mut Vec<(String, utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>)>
-) -> (String, utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>);
+    &mut Vec<(
+        String,
+        utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>,
+    )>,
+) -> (
+    String,
+    utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>,
+);
 
 #[derive(Clone, Copy)]
 pub struct ResponseMeta {
@@ -48,7 +54,7 @@ pub struct RouteEntry {
     pub is_paginated: bool,
     /// Whether this endpoint accepts the ?preload query parameter
     pub has_preload: bool,
-    /// Optional cache TTL in seconds 
+    /// Optional cache TTL in seconds
     pub cache_ttl: Option<u64>,
     /// Optional list of table-dependent tags to auto-invalidate this cache
     pub cache_watch: Option<&'static [&'static str]>,
@@ -72,7 +78,22 @@ impl RouteEntry {
         cache_ttl: Option<u64>,
         cache_watch: Option<&'static [&'static str]>,
     ) -> Self {
-        Self { method, path, tag, desc, register, responses, auth, permissions, rate, req_body_schema_fn, is_paginated, has_preload, cache_ttl, cache_watch }
+        Self {
+            method,
+            path,
+            tag,
+            desc,
+            register,
+            responses,
+            auth,
+            permissions,
+            rate,
+            req_body_schema_fn,
+            is_paginated,
+            has_preload,
+            cache_ttl,
+            cache_watch,
+        }
     }
 }
 
@@ -103,8 +124,23 @@ fn translate_path(path: &str) -> String {
 /// Register all auto-discovered `#[route]` handlers with ntex.
 ///
 /// Called internally by `App::run()`.
+///
+/// Routes are sorted so that **static** paths (e.g. `/users/cached`) are
+/// registered before **parameterized** paths (e.g. `/users/{id}`).  This
+/// prevents ntex from greedily matching a literal segment like `"cached"`
+/// against a `{id}` placeholder.
 pub fn register_all(cfg: &mut ntex::web::ServiceConfig) {
-    for entry in inventory::iter::<RouteEntry> {
+    let mut entries: Vec<&RouteEntry> = inventory::iter::<RouteEntry>.into_iter().collect();
+
+    // Static paths first, parameterized paths last.
+    // Among equal-specificity routes, preserve original order (stable sort).
+    entries.sort_by(|a, b| {
+        let a_has_param = a.path.contains('{') || a.path.contains(':');
+        let b_has_param = b.path.contains('{') || b.path.contains(':');
+        a_has_param.cmp(&b_has_param)
+    });
+
+    for entry in entries {
         (entry.register)(cfg);
     }
 }
@@ -138,14 +174,18 @@ pub fn build_cache_route_map() -> std::collections::HashMap<String, CacheRouteIn
         if let Some(ttl) = entry.cache_ttl {
             let ntex_path = translate_path(entry.path);
             let key = format!("{} {}", entry.method.to_uppercase(), ntex_path);
-            let watch = entry.cache_watch
+            let watch = entry
+                .cache_watch
                 .map(|tags| tags.to_vec())
                 .unwrap_or_default();
-            map.insert(key, CacheRouteInfo {
-                path_pattern: entry.path,
-                ttl,
-                watch,
-            });
+            map.insert(
+                key,
+                CacheRouteInfo {
+                    path_pattern: entry.path,
+                    ttl,
+                    watch,
+                },
+            );
         }
     }
     map
@@ -175,13 +215,14 @@ pub fn build_security_route_map() -> std::collections::HashMap<String, RouteSecu
         if entry.auth.is_some() || entry.permissions.is_some() {
             let ntex_path = translate_path(entry.path);
             let key = format!("{} {}", entry.method.to_uppercase(), ntex_path);
-            let permissions = entry.permissions
-                .map(|p| p.to_vec())
-                .unwrap_or_default();
-            map.insert(key, RouteSecurityRule {
-                auth: entry.auth,
-                permissions,
-            });
+            let permissions = entry.permissions.map(|p| p.to_vec()).unwrap_or_default();
+            map.insert(
+                key,
+                RouteSecurityRule {
+                    auth: entry.auth,
+                    permissions,
+                },
+            );
         }
     }
     map
@@ -195,12 +236,14 @@ pub type RateLimitRouteMap = std::sync::Arc<std::collections::HashMap<String, St
 /// rate limit if defined.
 ///
 /// Called once during `App::run()` and injected into the ntex app state.
-pub fn build_rate_limit_route_map(global_rate_limit: Option<String>) -> std::collections::HashMap<String, String> {
+pub fn build_rate_limit_route_map(
+    global_rate_limit: Option<String>,
+) -> std::collections::HashMap<String, String> {
     let mut map = std::collections::HashMap::new();
     for entry in inventory::iter::<RouteEntry> {
         let ntex_path = translate_path(entry.path);
         let key = format!("{} {}", entry.method.to_uppercase(), ntex_path);
-        
+
         if let Some(rate) = entry.rate {
             map.insert(key, rate.to_string());
         } else if let Some(global) = &global_rate_limit {
@@ -239,8 +282,7 @@ pub fn print_route_table() {
     );
     println!(
         "  {:<8} {:<28} {:<18} {:<6} {:<10} ───────────────────────────────",
-        "──────", "────────────────────────────",
-        "──────────────────", "──────", "──────────"
+        "──────", "────────────────────────────", "──────────────────", "──────", "──────────"
     );
 
     for entry in &entries {
@@ -265,8 +307,8 @@ pub fn print_route_table() {
 pub fn generate_openapi() -> utoipa::openapi::OpenApi {
     use utoipa::openapi::{
         path::{HttpMethod, OperationBuilder, PathItem},
-        InfoBuilder, OpenApiBuilder, PathsBuilder, ResponseBuilder, ResponsesBuilder,
-        ComponentsBuilder, ContentBuilder,
+        ComponentsBuilder, ContentBuilder, InfoBuilder, OpenApiBuilder, PathsBuilder,
+        ResponseBuilder, ResponsesBuilder,
     };
 
     let mut paths = PathsBuilder::new();
@@ -293,11 +335,9 @@ pub fn generate_openapi() -> utoipa::openapi::OpenApi {
                 // Execute the function pointer dynamically!
                 let mut components_list = Vec::new();
                 let (root_name, root_schema) = schema_fn(&mut components_list);
-                
+
                 let content = if root_name.is_empty() {
-                    ContentBuilder::new()
-                        .schema(Some(root_schema))
-                        .build()
+                    ContentBuilder::new().schema(Some(root_schema)).build()
                 } else {
                     let ref_path = format!("#/components/schemas/{}", root_name);
                     components = components.schema(root_name, root_schema);
@@ -328,11 +368,9 @@ pub fn generate_openapi() -> utoipa::openapi::OpenApi {
         if let Some(schema_fn) = entry.req_body_schema_fn {
             let mut components_list = Vec::new();
             let (root_name, root_schema) = schema_fn(&mut components_list);
-            
+
             let content = if root_name.is_empty() {
-                ContentBuilder::new()
-                    .schema(Some(root_schema))
-                    .build()
+                ContentBuilder::new().schema(Some(root_schema)).build()
             } else {
                 let ref_path = format!("#/components/schemas/{}", root_name);
                 components = components.schema(root_name, root_schema);
@@ -340,14 +378,14 @@ pub fn generate_openapi() -> utoipa::openapi::OpenApi {
                     .schema(Some(utoipa::openapi::schema::Ref::new(ref_path)))
                     .build()
             };
-                
+
             let request_body = utoipa::openapi::request_body::RequestBodyBuilder::new()
                 .content("application/json", content)
                 .required(Some(utoipa::openapi::Required::True))
                 .build();
-                
+
             op = op.request_body(Some(request_body));
-            
+
             for (name, schema) in components_list {
                 components = components.schema(name, schema);
             }
@@ -364,22 +402,26 @@ pub fn generate_openapi() -> utoipa::openapi::OpenApi {
         if entry.is_paginated {
             use ::utoipa::openapi::path::{ParameterBuilder, ParameterIn};
             use ::utoipa::openapi::schema::{ObjectBuilder, SchemaType, Type};
-            
+
             op = op.parameter(
                 ParameterBuilder::new()
                     .name("limit")
                     .parameter_in(ParameterIn::Query)
                     .description(Some("Maximum number of results to return (default 10)"))
-                    .schema(Some(ObjectBuilder::new().schema_type(Type::Integer).build()))
-                    .build()
+                    .schema(Some(
+                        ObjectBuilder::new().schema_type(Type::Integer).build(),
+                    ))
+                    .build(),
             );
             op = op.parameter(
                 ParameterBuilder::new()
                     .name("offset")
                     .parameter_in(ParameterIn::Query)
                     .description(Some("Number of results to skip (default 0)"))
-                    .schema(Some(ObjectBuilder::new().schema_type(Type::Integer).build()))
-                    .build()
+                    .schema(Some(
+                        ObjectBuilder::new().schema_type(Type::Integer).build(),
+                    ))
+                    .build(),
             );
             op = op.parameter(
                 ParameterBuilder::new()
@@ -387,14 +429,14 @@ pub fn generate_openapi() -> utoipa::openapi::OpenApi {
                     .parameter_in(ParameterIn::Query)
                     .description(Some("Order direction, e.g., 'created_at -desc'"))
                     .schema(Some(ObjectBuilder::new().schema_type(Type::String).build()))
-                    .build()
+                    .build(),
             );
         }
 
         if entry.has_preload {
             use ::utoipa::openapi::path::{ParameterBuilder, ParameterIn};
             use ::utoipa::openapi::schema::{ObjectBuilder, Type};
-            
+
             op = op.parameter(
                 ParameterBuilder::new()
                     .name("preload")
@@ -409,9 +451,9 @@ pub fn generate_openapi() -> utoipa::openapi::OpenApi {
         // Actually, ntex already expects `{id}` if we translate it in the macro.
         // But the entry.path from the macro is the original `:id`.
         let openapi_path = entry.path.to_string();
-        
+
         let path_item = PathItem::new(method, op.build());
-        
+
         // Transform Express-style `/users/:id` to OpenAPI `/users/{id}`
         // and also we could add parameters here, but let's just do path translation for now.
         let mut converted_path = String::with_capacity(openapi_path.len());
@@ -508,6 +550,10 @@ pub const SWAGGER_UI_HTML_TEMPLATE: &str = r#"
         window.ui = SwaggerUIBundle({
           url: '/api-docs/openapi.json',
           dom_id: '#swagger-ui',
+          presets: [
+            SwaggerUIBundle.presets.apis
+          ],
+          layout: "BaseLayout"
         });
 
         // Initialize Theme
@@ -532,4 +578,3 @@ pub const SWAGGER_UI_HTML_TEMPLATE: &str = r#"
   </body>
 </html>
 "#;
-

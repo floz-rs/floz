@@ -1,11 +1,11 @@
+use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;
-use dashmap::DashMap;
 use tokio::sync::broadcast;
-use serde::{Deserialize, Serialize};
 
-use crate::app::{Context, AppContext};
+use crate::app::{AppContext, Context};
 use crate::errors::ApiError;
 
 pub type GateFuture = Pin<Box<dyn std::future::Future<Output = bool> + Send + 'static>>;
@@ -16,7 +16,10 @@ pub struct ChannelGateEntry {
 }
 
 impl ChannelGateEntry {
-    pub const fn new(pattern: &'static str, handler: fn(Context, HashMap<String, String>) -> GateFuture) -> Self {
+    pub const fn new(
+        pattern: &'static str,
+        handler: fn(Context, HashMap<String, String>) -> GateFuture,
+    ) -> Self {
         Self { pattern, handler }
     }
 }
@@ -61,5 +64,3 @@ pub async fn ws_channels_handler(
 ) -> Result<ntex::web::HttpResponse, ntex::web::Error> {
     Ok(ntex::web::HttpResponse::NotImplemented().finish())
 }
-
-

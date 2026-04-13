@@ -9,12 +9,18 @@ use std::time::Duration;
 
 #[task(queue = "emails", retries = 3)]
 async fn send_welcome_email(user_name: String) -> Result<(), floz::worker::TaskError> {
-    println!(">>> [WORKER] Starting to send welcome email to {}...", user_name);
-    
+    println!(
+        ">>> [WORKER] Starting to send welcome email to {}...",
+        user_name
+    );
+
     // Simulate some work, e.g., network request
     tokio::time::sleep(Duration::from_secs(1)).await;
-    
-    println!(">>> [WORKER] ✓ Welcome email successfully sent to {}!", user_name);
+
+    println!(
+        ">>> [WORKER] ✓ Welcome email successfully sent to {}!",
+        user_name
+    );
     Ok(())
 }
 
@@ -41,14 +47,20 @@ struct UserReq {
     desc: "Register a new user and dispatch a background email task",
     resps: [(200, "User registered successfully")]
 )]
-async fn register_user(state: floz::ntex::web::types::State<AppContext>, req: Json<UserReq>) -> Result<floz::ntex::web::HttpResponse, floz::ntex::web::Error> {
+async fn register_user(
+    state: floz::ntex::web::types::State<AppContext>,
+    req: Json<UserReq>,
+) -> Result<floz::ntex::web::HttpResponse, floz::ntex::web::Error> {
     println!("API: Received registration for user '{}'", req.name);
-    
+
     // Fire and forget task execution
-    send_welcome_email.dispatch(&state, req.name.clone()).await.map_err(|e| {
-        println!("Failed to dispatch task: {e}");
-        floz::ntex::web::error::ErrorInternalServerError("Queue dispatch error")
-    })?;
+    send_welcome_email
+        .dispatch(&state, req.name.clone())
+        .await
+        .map_err(|e| {
+            println!("Failed to dispatch task: {e}");
+            floz::ntex::web::error::ErrorInternalServerError("Queue dispatch error")
+        })?;
 
     // Schedule a cleanup job 10 seconds into the future
     cleanup_inactive_accounts
@@ -59,11 +71,13 @@ async fn register_user(state: floz::ntex::web::types::State<AppContext>, req: Js
             floz::ntex::web::error::ErrorInternalServerError(format!("Dispatch error: {}", e))
         })?;
 
-    Ok(floz::ntex::web::HttpResponse::Ok().json(&serde_json::json!({
-        "status": "registered",
-        "user": req.name,
-        "message": "Welcome email has been queued and will be sent shortly."
-    })))
+    Ok(
+        floz::ntex::web::HttpResponse::Ok().json(&serde_json::json!({
+            "status": "registered",
+            "user": req.name,
+            "message": "Welcome email has been queued and will be sent shortly."
+        })),
+    )
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -75,10 +89,7 @@ async fn main() -> std::io::Result<()> {
     // Ensure you use the App builder with `.with_worker()`
     App::new()
         .with_worker(2) // Start 2 concurrent worker threads fetching from queues
-        .server(
-            ServerConfig::new()
-                .with_default_port(8080)
-        )
+        .server(ServerConfig::new().with_default_port(8080))
         .run()
         .await
 }

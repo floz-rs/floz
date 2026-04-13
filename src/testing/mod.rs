@@ -118,7 +118,8 @@ impl Default for TestAppBuilder {
 impl TestAppBuilder {
     /// Register a custom state extension (available via `state.ext::<T>()`).
     pub fn with<T: Send + Sync + 'static>(mut self, data: T) -> Self {
-        self.extensions.insert(std::any::TypeId::of::<T>(), Box::new(data));
+        self.extensions
+            .insert(std::any::TypeId::of::<T>(), Box::new(data));
         self
     }
 
@@ -140,7 +141,9 @@ impl TestAppBuilder {
 
         // Set TEST_DATABASE_URL override if available
         if let Ok(test_url) = std::env::var("TEST_DATABASE_URL") {
-            unsafe { std::env::set_var("DATABASE_URL", test_url); }
+            unsafe {
+                std::env::set_var("DATABASE_URL", test_url);
+            }
         }
 
         // Initialize AppContext with test extensions

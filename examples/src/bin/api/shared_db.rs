@@ -1,6 +1,5 @@
 use floz::prelude::*;
 
-
 #[model("notes")]
 pub struct Note {
     #[col(auto, key)]
@@ -23,7 +22,7 @@ struct MyCustomState {
 async fn list_notes(state: State) -> Resp {
     let app_state = state.ext::<MyCustomState>();
     info!("Handling request for app: {}", app_state.app_name);
-    
+
     match Note::all(&state.db()).await {
         Ok(notes) => Resp::Ok().json(&notes),
         Err(e) => Resp::InternalServerError().body(e.to_string()),
@@ -41,7 +40,9 @@ async fn create_note(state: State) -> Resp {
     let note = Note {
         content: "Shared pool note!".to_string(),
         ..Default::default()
-    }.create(&state.db()).await;
+    }
+    .create(&state.db())
+    .await;
 
     match note {
         Ok(n) => Resp::Created().json(&n),
@@ -52,13 +53,20 @@ async fn create_note(state: State) -> Resp {
 #[floz::main]
 async fn main() -> std::io::Result<()> {
     App::new()
-        .with(MyCustomState { app_name: "Floz Demo App".to_string() })
+        .with(MyCustomState {
+            app_name: "Floz Demo App".to_string(),
+        })
         .on_start(|ctx| async move {
             let db = ctx.db();
             Note::drop_table(&db).await.unwrap();
             Note::create_table(&db).await.unwrap();
-            Note { content: "Initial seed note".to_string(), ..Default::default() }
-                .create(&db).await.unwrap();
+            Note {
+                content: "Initial seed note".to_string(),
+                ..Default::default()
+            }
+            .create(&db)
+            .await
+            .unwrap();
         })
         .run()
         .await

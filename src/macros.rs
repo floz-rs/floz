@@ -29,11 +29,10 @@ macro_rules! res {
     };
     ($body:expr, $status:expr) => {
         ntex::web::HttpResponse::build(
-            ntex::http::StatusCode::from_u16($status)
-                .unwrap_or(ntex::http::StatusCode::OK)
+            ntex::http::StatusCode::from_u16($status).unwrap_or(ntex::http::StatusCode::OK),
         )
-            .content_type("application/json")
-            .body($body)
+        .content_type("application/json")
+        .body($body)
     };
 }
 
@@ -46,12 +45,8 @@ macro_rules! res {
 macro_rules! pp {
     ($data:expr) => {{
         match std::env::var("SERVER_ENV") {
-            Ok(env_value) if env_value.as_str() == "DEV" => {
-                serde_json::to_string_pretty($data)
-            },
-            _ => {
-                serde_json::to_string($data)
-            }
+            Ok(env_value) if env_value.as_str() == "DEV" => serde_json::to_string_pretty($data),
+            _ => serde_json::to_string($data),
         }
     }};
 }
@@ -80,8 +75,8 @@ macro_rules! xquery {
 #[macro_export]
 macro_rules! to_json {
     ($row:expr) => {{
-        use serde_json::Value;
         use floz_orm::sqlx::{Column, Row};
+        use serde_json::Value;
         let mut map = serde_json::Map::new();
         let columns = $row.columns();
         for column in columns {
@@ -111,7 +106,7 @@ macro_rules! to_json {
                     let val: chrono::DateTime<chrono::Utc> = $row.get(name);
                     Value::String(val.to_rfc3339())
                 }
-                _ => Value::Null
+                _ => Value::Null,
             };
             map.insert(name.to_string(), value);
         }

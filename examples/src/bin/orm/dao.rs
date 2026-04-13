@@ -41,7 +41,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         age: 30,
         email: Some("alice@example.com".to_string()),
         ..Default::default()
-    }.create(&db).await?;
+    }
+    .create(&db)
+    .await?;
     println!("  Created: {:?}", alice);
 
     // 2. Read
@@ -54,17 +56,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("> Updating user name and age (dirty tracking avoids updating email)...");
     user.set_name("Alice Updated".to_string());
     user.set_age(31);
-    
+
     // Check our dirty changes before saving
     user.save(&db).await?;
-    
+
     let updated = User::get(alice.id, &db).await?;
     println!("  Updated: {:?}", updated);
 
     // 4. Delete
     println!("> Deleting user...");
     updated.delete(&db).await?;
-    
+
     // Verify deletion
     let deleted = User::find(alice.id, &db).await?;
     assert!(deleted.is_none());

@@ -9,9 +9,7 @@ use floz::prelude::*;
         (404, "User not found"),
     ],
 )]
-async fn get_user(
-    path: Path<i32>,
-) -> Resp {
+async fn get_user(path: Path<i32>) -> Resp {
     let id = path.into_inner();
     Resp::Ok().json(&json!({
         "id": id,
@@ -31,7 +29,5 @@ async fn health() -> Resp {
 
 #[floz::main]
 async fn main() -> std::io::Result<()> {
-    App::new()
-        .run()
-        .await
+    App::new().run().await
 }

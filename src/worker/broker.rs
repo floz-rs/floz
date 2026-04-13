@@ -37,7 +37,7 @@ impl RedisBroker {
         _timeout_secs: usize, // No longer blocking via redis natively
     ) -> Result<Option<TaskMessage>, TaskError> {
         let mut conn = self.conn.clone();
-        
+
         // RPOP pops from the right, one queue at a time
         for q in queues {
             let key = Self::queue_key(q);
@@ -48,10 +48,10 @@ impl RedisBroker {
                 return Ok(Some(msg));
             }
         }
-        
+
         // If all queues are empty, wait to prevent CPU spin
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-        
+
         Ok(None)
     }
 }

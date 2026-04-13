@@ -1,6 +1,6 @@
-use floz::worker::TaskMessage;
-use floz::worker::retry::exponential_backoff;
 use chrono::Utc;
+use floz::worker::retry::exponential_backoff;
+use floz::worker::TaskMessage;
 use serde_json::json;
 
 #[test]
@@ -22,7 +22,7 @@ fn test_task_message_eta() {
     let args = json!([1, 2, 3]);
     let msg = TaskMessage::new("demo", "default", args, 1);
     let future_eta = Utc::now() + chrono::Duration::hours(1);
-    
+
     let msg_delayed = msg.with_eta(future_eta);
     assert_eq!(msg_delayed.eta, Some(future_eta));
 }
@@ -44,7 +44,7 @@ fn test_task_message_serialization() {
 #[test]
 fn test_exponential_backoff_base() {
     let d1 = exponential_backoff(1);
-    // Base is 2s, jitter is up to 0.4s -> 0..1 max jitter. 
+    // Base is 2s, jitter is up to 0.4s -> 0..1 max jitter.
     // Actual is 2s or 3s.
     assert!(d1.as_secs() >= 2 && d1.as_secs() <= 3);
 
@@ -58,7 +58,7 @@ fn test_exponential_backoff_base() {
 fn test_exponential_backoff_cap() {
     let cap_retry = exponential_backoff(20);
     let max_cap = exponential_backoff(14);
-    
+
     // They both use exp = 14 so max base is 16384s.
     assert!(cap_retry.as_secs() >= 16384 && cap_retry.as_secs() <= 16384 + (16384.0 * 0.2) as u64);
     assert!(max_cap.as_secs() >= 16384 && max_cap.as_secs() <= 16384 + (16384.0 * 0.2) as u64);

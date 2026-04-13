@@ -1,6 +1,6 @@
 use floz::prelude::*;
-use serde::{Deserialize, Serialize};
 use floz::utoipa::ToSchema;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, ToSchema)]
 pub struct User {
@@ -25,11 +25,9 @@ pub struct ErrorResponse {
         (404, "User not found", Json<ErrorResponse>)
     ]
 )]
-async fn get_user(
-    path: Path<i32>,
-) -> Resp {
+async fn get_user(path: Path<i32>) -> Resp {
     let id = path.into_inner();
-    
+
     if id == 1 {
         let user = User {
             id: 1,

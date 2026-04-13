@@ -46,5 +46,3 @@ pub fn find_task(name: &str) -> Option<&'static dyn TaskDef> {
     }
     None
 }
-
-

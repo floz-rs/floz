@@ -91,10 +91,12 @@ impl Worker {
         if let Some(eta) = msg.eta {
             let now = Utc::now();
             if now < eta {
-                let delay = (eta - now).to_std().unwrap_or(std::time::Duration::from_secs(1));
-                
+                let delay = (eta - now)
+                    .to_std()
+                    .unwrap_or(std::time::Duration::from_secs(1));
+
                 // If the delay is short, sleep natively. Disadvantage: blocks this runner.
-                // If it's long, re-enqueue it. 
+                // If it's long, re-enqueue it.
                 // For a robust system, there should be a dedicated scheduler processing ETAs.
                 // For MVP, we sleep if < 60s, else re-enqueue and sleep briefly to avoid spinning.
                 if delay.as_secs() < 60 {
@@ -107,8 +109,13 @@ impl Worker {
             }
         }
 
-        tracing::info!("Worker {} starting task: {} [{}]", worker_id, msg.name, msg.id);
-        
+        tracing::info!(
+            "Worker {} starting task: {} [{}]",
+            worker_id,
+            msg.name,
+            msg.id
+        );
+
         let task_def = match find_task(&msg.name) {
             Some(def) => def,
             None => {
@@ -122,7 +129,12 @@ impl Worker {
 
         match result {
             Ok(_) => {
-                tracing::info!("Worker {} completed task: {} [{}]", worker_id, msg.name, msg.id);
+                tracing::info!(
+                    "Worker {} completed task: {} [{}]",
+                    worker_id,
+                    msg.name,
+                    msg.id
+                );
             }
             Err(e) => {
                 tracing::warn!(
@@ -140,7 +152,7 @@ impl Worker {
                     msg.retries += 1;
                     let delay = exponential_backoff(msg.retries);
                     msg.eta = Some(Utc::now() + chrono::Duration::from_std(delay).unwrap());
-                    
+
                     if let Err(e) = self.broker.enqueue(&msg).await {
                         tracing::error!("Failed to requeue task {}: {:?}", msg.id, e);
                     }

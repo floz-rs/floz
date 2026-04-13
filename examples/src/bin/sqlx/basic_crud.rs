@@ -1,7 +1,6 @@
 use floz::prelude::*;
 use floz::Db;
 
-
 #[model("users")]
 pub struct User {
     #[col(auto, key)]
@@ -20,7 +19,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db = Db::connect_env("DATABASE_URL", "postgres://localhost:5432/floz1").await?;
 
     // Create table (warning: usually managed by migrations!)
-    let _ = db.execute_raw("DROP TABLE IF EXISTS users CASCADE", vec![]).await;
+    let _ = db
+        .execute_raw("DROP TABLE IF EXISTS users CASCADE", vec![])
+        .await;
     db.execute_raw(
         "CREATE TABLE users (
             id SERIAL PRIMARY KEY,
@@ -28,8 +29,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             age SMALLINT NOT NULL,
             is_active BOOLEAN NOT NULL DEFAULT true
         )",
-        vec![]
-    ).await?;
+        vec![],
+    )
+    .await?;
 
     // --- 1. Create ---
     println!("> Creating a user...");
@@ -37,7 +39,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         name: "Alice".to_string(),
         age: 25,
         ..User::default()
-    }.create(&db).await?;
+    }
+    .create(&db)
+    .await?;
     println!("Created: {:?}", alice);
 
     // --- 2. Read ---
@@ -50,14 +54,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     fetched.set_name("Alice (Updated)".to_string());
     fetched.set_age(26);
     fetched.save(&db).await?; // Only updates modified fields!
-    
+
     let updated = User::get(alice.id, &db).await?;
     println!("Updated: {:?}", updated);
 
     // --- 4. Delete ---
     println!("> Deleting user...");
     updated.delete(&db).await?;
-    
+
     let deleted = User::find(alice.id, &db).await?;
     assert!(deleted.is_none());
     println!("User successfully deleted.");

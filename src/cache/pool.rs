@@ -71,8 +71,8 @@ impl Cache {
         match serde_json::to_string(value) {
             Ok(s) => self.set(key, &s, ttl_secs).await,
             Err(e) => Err(redis::RedisError::from(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    e.to_string(),
+                std::io::ErrorKind::InvalidData,
+                e.to_string(),
             ))),
         }
     }
@@ -124,7 +124,7 @@ impl Cache {
     pub async fn drop_by_tag(&self, tag: &str) -> redis::RedisResult<()> {
         let mut conn = self.conn.as_ref().clone();
         let set_key = format!("floz:cache:tags:{}", tag);
-        
+
         let members: Vec<String> = conn.smembers(&set_key).await?;
         if !members.is_empty() {
             // Redis DEL takes an array of keys

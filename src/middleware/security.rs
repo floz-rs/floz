@@ -126,7 +126,7 @@ impl Middleware for SecurityHeaders {
         None // always continue
     }
 
-    fn response(&self, _req: &HttpRequest, mut resp: HttpResponse) -> HttpResponse {
+    fn response(&self, req: &HttpRequest, mut resp: HttpResponse) -> HttpResponse {
         let headers = resp.headers_mut();
 
         // Prevent MIME-type sniffing
@@ -137,10 +137,7 @@ impl Middleware for SecurityHeaders {
 
         // Prevent clickjacking
         if let Ok(value) = HeaderValue::from_str(&self.frame_options) {
-            headers.insert(
-                ntex::http::header::X_FRAME_OPTIONS,
-                value,
-            );
+            headers.insert(ntex::http::header::X_FRAME_OPTIONS, value);
         }
 
         // Disable legacy XSS auditor (modern CSP is the replacement)
@@ -151,7 +148,22 @@ impl Middleware for SecurityHeaders {
 
         // Content-Security-Policy
         if !self.csp.is_empty() {
-            if let Ok(value) = HeaderValue::from_str(&self.csp) {
+            let path = req.path();
+            let is_docs_ui = path.starts_with("/api-docs")
+                || path.starts_with("/ui")
+                || path.starts_with("/docs");
+
+            // Swagger UI heavily relies on inline scripts and styles.
+            // We isolate this relaxed CSP precisely to the doc viewer
+            // routes while keeping default-src 'none' strictly active for
+            // all other JSON API responses.
+            let effective_csp = if is_docs_ui {
+                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'"
+            } else {
+                &self.csp
+            };
+
+            if let Ok(value) = HeaderValue::from_str(effective_csp) {
                 headers.insert(
                     ntex::http::header::HeaderName::from_static("content-security-policy"),
                     value,
@@ -181,10 +193,7 @@ impl Middleware for SecurityHeaders {
                 format!("max-age={}", self.hsts_max_age)
             };
             if let Ok(value) = HeaderValue::from_str(&hsts_value) {
-                headers.insert(
-                    ntex::http::header::STRICT_TRANSPORT_SECURITY,
-                    value,
-                );
+                headers.insert(ntex::http::header::STRICT_TRANSPORT_SECURITY, value);
             }
         }
 

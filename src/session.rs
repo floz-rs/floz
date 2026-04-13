@@ -33,39 +33,55 @@ impl<'a> SessionStore<'a> {
 
     /// Retrieve a generic JSON value from the Redis session store.
     #[cfg(feature = "worker")]
-    pub async fn get<T: DeserializeOwned>(&self, key: &str) -> Result<Option<T>, crate::errors::ApiError> {
+    pub async fn get<T: DeserializeOwned>(
+        &self,
+        key: &str,
+    ) -> Result<Option<T>, crate::errors::ApiError> {
         let Some(cache) = self.cache else {
             tracing::warn!("SessionStore::get called but Redis is not configured");
             return Ok(None);
         };
-        
+
         let mut conn = cache.connection();
         let cache_key = format!("{}{}:{}", SESSION_KEY_PREFIX, self.session_id, key);
-        
-        // Touch the overall ttl to keep session alive
-        let _: () = conn.expire(&cache_key, DEFAULT_SESSION_TTL.as_secs() as i64).await.unwrap_or(());
 
-        let result: Option<String> = conn.get(&cache_key).await
+        // Touch the overall ttl to keep session alive
+        let _: () = conn
+            .expire(&cache_key, DEFAULT_SESSION_TTL.as_secs() as i64)
+            .await
+            .unwrap_or(());
+
+        let result: Option<String> = conn
+            .get(&cache_key)
+            .await
             .map_err(|e| crate::errors::ApiError::internal(format!("Redis get error: {}", e)))?;
-            
+
         if let Some(json_str) = result {
-            let deserialized = serde_json::from_str(&json_str)
-                .map_err(|e| crate::errors::ApiError::internal(format!("Session deserialize error: {}", e)))?;
+            let deserialized = serde_json::from_str(&json_str).map_err(|e| {
+                crate::errors::ApiError::internal(format!("Session deserialize error: {}", e))
+            })?;
             return Ok(Some(deserialized));
         }
-        
+
         Ok(None)
     }
 
     #[cfg(not(feature = "worker"))]
-    pub async fn get<T: DeserializeOwned>(&self, _key: &str) -> Result<Option<T>, crate::errors::ApiError> {
+    pub async fn get<T: DeserializeOwned>(
+        &self,
+        _key: &str,
+    ) -> Result<Option<T>, crate::errors::ApiError> {
         tracing::warn!("SessionStore requires the `worker` feature for Redis");
         Ok(None)
     }
 
     /// Serialize and insert a generic value into the Redis session store.
     #[cfg(feature = "worker")]
-    pub async fn set<T: Serialize>(&self, key: &str, value: &T) -> Result<(), crate::errors::ApiError> {
+    pub async fn set<T: Serialize>(
+        &self,
+        key: &str,
+        value: &T,
+    ) -> Result<(), crate::errors::ApiError> {
         let Some(cache) = self.cache else {
             tracing::warn!("SessionStore::set called but Redis is not configured");
             return Ok(());
@@ -73,18 +89,25 @@ impl<'a> SessionStore<'a> {
 
         let mut conn = cache.connection();
         let cache_key = format!("{}{}:{}", SESSION_KEY_PREFIX, self.session_id, key);
-        
-        let json_str = serde_json::to_string(value)
-            .map_err(|e| crate::errors::ApiError::internal(format!("Session serialize error: {}", e)))?;
-            
-        let _: () = conn.set_ex(&cache_key, json_str, DEFAULT_SESSION_TTL.as_secs() as u64).await
+
+        let json_str = serde_json::to_string(value).map_err(|e| {
+            crate::errors::ApiError::internal(format!("Session serialize error: {}", e))
+        })?;
+
+        let _: () = conn
+            .set_ex(&cache_key, json_str, DEFAULT_SESSION_TTL.as_secs() as u64)
+            .await
             .map_err(|e| crate::errors::ApiError::internal(format!("Redis set error: {}", e)))?;
-            
+
         Ok(())
     }
 
     #[cfg(not(feature = "worker"))]
-    pub async fn set<T: Serialize>(&self, _key: &str, _value: &T) -> Result<(), crate::errors::ApiError> {
+    pub async fn set<T: Serialize>(
+        &self,
+        _key: &str,
+        _value: &T,
+    ) -> Result<(), crate::errors::ApiError> {
         tracing::warn!("SessionStore requires the `worker` feature for Redis");
         Ok(())
     }
@@ -92,10 +115,14 @@ impl<'a> SessionStore<'a> {
     /// Delete a specific key from the session.
     #[cfg(feature = "worker")]
     pub async fn remove(&self, key: &str) -> Result<(), crate::errors::ApiError> {
-        let Some(cache) = self.cache else { return Ok(()) };
+        let Some(cache) = self.cache else {
+            return Ok(());
+        };
         let mut conn = cache.connection();
         let cache_key = format!("{}{}:{}", SESSION_KEY_PREFIX, self.session_id, key);
-        let _: () = conn.del(&cache_key).await
+        let _: () = conn
+            .del(&cache_key)
+            .await
             .map_err(|e| crate::errors::ApiError::internal(format!("Redis del error: {}", e)))?;
         Ok(())
     }

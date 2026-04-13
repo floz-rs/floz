@@ -19,19 +19,20 @@ async fn test_cors_permissive() {
 
 #[ntex::test]
 async fn test_cors_integration_preflight() {
-    use ntex::web::{self, App, HttpResponse};
     use ntex::web::test::{init_service, TestRequest};
+    use ntex::web::{self, App, HttpResponse};
 
     let app = init_service(
         App::new()
             .middleware(floz::middleware::FlozPipeline::new(
                 floz::middleware::Stack {
                     inner: floz::middleware::EmptyStack,
-                    outer: floz::middleware::SyncLayer(Cors::permissive())
-                }
+                    outer: floz::middleware::SyncLayer(Cors::permissive()),
+                },
             ))
-            .route("/", web::get().to(|| async { HttpResponse::Ok() }))
-    ).await;
+            .route("/", web::get().to(|| async { HttpResponse::Ok() })),
+    )
+    .await;
 
     let req = TestRequest::with_uri("/")
         .method(ntex::http::Method::OPTIONS)
@@ -41,25 +42,29 @@ async fn test_cors_integration_preflight() {
 
     let resp = ntex::web::test::call_service(&app, req).await;
     assert!(resp.status().is_success());
-    let allowed_origin = resp.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN).unwrap();
+    let allowed_origin = resp
+        .headers()
+        .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+        .unwrap();
     assert_eq!(allowed_origin, "https://local.dev");
 }
 
 #[ntex::test]
 async fn test_cors_integration_request() {
-    use ntex::web::{self, App, HttpResponse};
     use ntex::web::test::{init_service, TestRequest};
+    use ntex::web::{self, App, HttpResponse};
 
     let app = init_service(
         App::new()
             .middleware(floz::middleware::FlozPipeline::new(
                 floz::middleware::Stack {
                     inner: floz::middleware::EmptyStack,
-                    outer: floz::middleware::SyncLayer(Cors::permissive())
-                }
+                    outer: floz::middleware::SyncLayer(Cors::permissive()),
+                },
             ))
-            .route("/", web::get().to(|| async { HttpResponse::Ok() }))
-    ).await;
+            .route("/", web::get().to(|| async { HttpResponse::Ok() })),
+    )
+    .await;
 
     let req = TestRequest::get()
         .uri("/")
@@ -68,6 +73,9 @@ async fn test_cors_integration_request() {
 
     let resp = ntex::web::test::call_service(&app, req).await;
     assert!(resp.status().is_success());
-    let allowed_origin = resp.headers().get(header::ACCESS_CONTROL_ALLOW_ORIGIN).unwrap();
+    let allowed_origin = resp
+        .headers()
+        .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+        .unwrap();
     assert_eq!(allowed_origin, "https://local.dev");
 }

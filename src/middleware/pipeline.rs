@@ -149,7 +149,11 @@ pub trait AsyncMiddleware: Clone + Send + Sync + 'static {
 
     /// Post-process the response asynchronously (runs in reverse middleware order).
     /// Default: pass through unchanged.
-    fn response(&self, _req: &HttpRequest, resp: HttpResponse) -> impl std::future::Future<Output = HttpResponse> {
+    fn response(
+        &self,
+        _req: &HttpRequest,
+        resp: HttpResponse,
+    ) -> impl std::future::Future<Output = HttpResponse> {
         async { resp }
     }
 
@@ -217,10 +221,17 @@ pub struct Stack<Inner, Outer> {
 pub trait Process: Clone + Send + Sync + 'static {
     /// Run handle() through the stack in insertion order.
     /// Short-circuits on the first `Some(HttpResponse)`.
-    fn run_handle(&self, req: &HttpRequest) -> impl std::future::Future<Output = Option<HttpResponse>>;
+    fn run_handle(
+        &self,
+        req: &HttpRequest,
+    ) -> impl std::future::Future<Output = Option<HttpResponse>>;
 
     /// Run response() through the stack in reverse order.
-    fn run_response(&self, req: &HttpRequest, resp: HttpResponse) -> impl std::future::Future<Output = HttpResponse>;
+    fn run_response(
+        &self,
+        req: &HttpRequest,
+        resp: HttpResponse,
+    ) -> impl std::future::Future<Output = HttpResponse>;
 }
 
 impl Process for EmptyStack {

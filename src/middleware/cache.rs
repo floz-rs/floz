@@ -62,18 +62,20 @@ impl CacheMiddleware {
     /// For example, `"users:{id}"` with path param `id=42` → `"users:42"`
     fn resolve_tags(tags: &[&str], req: &HttpRequest) -> Vec<String> {
         let match_info = req.match_info();
-        tags.iter().map(|tag| {
-            let mut resolved = tag.to_string();
-            // Replace `{param}` patterns in tags with actual values
-            for (key, value) in match_info.iter() {
-                let placeholder = format!("{{{}}}", key);
-                resolved = resolved.replace(&placeholder, value);
-                // Also support `:param` style in tags  
-                let colon_placeholder = format!(":{}", key);
-                resolved = resolved.replace(&colon_placeholder, value);
-            }
-            resolved
-        }).collect()
+        tags.iter()
+            .map(|tag| {
+                let mut resolved = tag.to_string();
+                // Replace `{param}` patterns in tags with actual values
+                for (key, value) in match_info.iter() {
+                    let placeholder = format!("{{{}}}", key);
+                    resolved = resolved.replace(&placeholder, value);
+                    // Also support `:param` style in tags
+                    let colon_placeholder = format!(":{}", key);
+                    resolved = resolved.replace(&colon_placeholder, value);
+                }
+                resolved
+            })
+            .collect()
     }
 
     /// Find the matching CacheRouteInfo for this request by checking
@@ -134,7 +136,7 @@ impl AsyncMiddleware for CacheMiddleware {
                     return Some(
                         HttpResponse::Ok()
                             .content_type("application/json")
-                            .body(cached_body)
+                            .body(cached_body),
                     );
                 }
                 Ok(None) => {
@@ -174,8 +176,12 @@ impl AsyncMiddleware for CacheMiddleware {
                     // 3. Extract the response body as bytes
                     let body = resp.body();
                     let body_bytes: Option<&[u8]> = match body {
-                        ntex::http::body::ResponseBody::Body(ntex::http::body::Body::Bytes(ref b)) => Some(b.as_ref()),
-                        ntex::http::body::ResponseBody::Other(ntex::http::body::Body::Bytes(ref b)) => Some(b.as_ref()),
+                        ntex::http::body::ResponseBody::Body(ntex::http::body::Body::Bytes(
+                            ref b,
+                        )) => Some(b.as_ref()),
+                        ntex::http::body::ResponseBody::Other(ntex::http::body::Body::Bytes(
+                            ref b,
+                        )) => Some(b.as_ref()),
                         _ => None,
                     };
                     if let Some(raw) = body_bytes {

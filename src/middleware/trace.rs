@@ -18,8 +18,8 @@
 //! ```
 
 use crate::middleware::Middleware;
-use ntex::web::{HttpRequest, HttpResponse};
 use ntex::http::header::{HeaderName, HeaderValue};
+use ntex::web::{HttpRequest, HttpResponse};
 
 /// Type containing the strongly-typed Request ID generated/extracted from the HTTP pipeline.
 ///
@@ -35,7 +35,7 @@ pub struct RequestId(pub String);
 ///   - 4xx → `warn!`
 ///   - 2xx/3xx → `info!`
 ///
-/// Automatically generates an `X-Request-Id` using a UUID if the incoming request 
+/// Automatically generates an `X-Request-Id` using a UUID if the incoming request
 /// does not supply one. The ID will be echoed back into the response header.
 #[derive(Clone, Debug)]
 pub struct RequestTrace {
@@ -66,10 +66,12 @@ impl Default for RequestTrace {
 
 impl Middleware for RequestTrace {
     fn handle(&self, req: &HttpRequest) -> Option<HttpResponse> {
-        let req_id = req.headers().get("x-request-id")
+        let req_id = req
+            .headers()
+            .get("x-request-id")
             .and_then(|h| h.to_str().ok().map(|s| s.to_string()))
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-            
+
         req.extensions_mut().insert(RequestId(req_id.clone()));
 
         if self.include_headers {
@@ -94,11 +96,16 @@ impl Middleware for RequestTrace {
 
     fn response(&self, req: &HttpRequest, mut resp: HttpResponse) -> HttpResponse {
         let status = resp.status().as_u16();
-        let req_id = req.extensions().get::<RequestId>().map(|r| r.0.clone()).unwrap_or_else(|| "-".to_string());
+        let req_id = req
+            .extensions()
+            .get::<RequestId>()
+            .map(|r| r.0.clone())
+            .unwrap_or_else(|| "-".to_string());
 
         // Echo it back to the client
         if let Ok(header_val) = HeaderValue::from_str(&req_id) {
-            resp.headers_mut().insert(HeaderName::from_static("x-request-id"), header_val);
+            resp.headers_mut()
+                .insert(HeaderName::from_static("x-request-id"), header_val);
         }
 
         if status >= 500 {

@@ -1,7 +1,7 @@
-use crate::middleware::Middleware;
 use crate::app::RequestContext;
+use crate::middleware::Middleware;
+use ntex::http::header::{HeaderValue, COOKIE, SET_COOKIE};
 use ntex::web::{HttpRequest, HttpResponse};
-use ntex::http::header::{HeaderValue, SET_COOKIE, COOKIE};
 use uuid::Uuid;
 
 /// Session Management Middleware.

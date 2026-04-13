@@ -62,9 +62,9 @@ impl AsyncMiddleware for RateLimitMiddleware {
         // 2. Identify the matching route key
         let method = req.method().as_str();
         let path = req.path();
-        
+
         let mut rate_str = None;
-        
+
         // Fast path: try exact match first
         let exact_key = format!("{} {}", method, path);
         if let Some(rate) = map.get(&exact_key) {
@@ -94,11 +94,18 @@ impl AsyncMiddleware for RateLimitMiddleware {
         };
 
         // 3. Obtain client identity (IP Address)
-        let ip = req.connection_info().remote().unwrap_or("unknown").to_string();
-        
+        let ip = req
+            .connection_info()
+            .remote()
+            .unwrap_or("unknown")
+            .to_string();
+
         // Try locating session ID if configured in the pipeline extension
-        let session_id = req.extensions().get::<crate::app::RequestContext>().map(|c| c.session_id.clone());
-        
+        let session_id = req
+            .extensions()
+            .get::<crate::app::RequestContext>()
+            .map(|c| c.session_id.clone());
+
         let identity = if let Some(sid) = session_id {
             format!("{}:{}", ip, sid)
         } else {
@@ -115,16 +122,19 @@ impl AsyncMiddleware for RateLimitMiddleware {
 
             let block_key = format!("floz:rate:{}:{}:{}", identity, method, path);
             let mut conn = cache.connection();
-            
+
             // Increment the specific endpoint counter
             use redis::AsyncCommands;
             let current_count: redis::RedisResult<i64> = conn.incr(&block_key, 1).await;
-            
+
             match current_count {
                 Ok(count) => {
                     if count == 1 {
                         // First hit in window, set the TTL
-                        let _: () = conn.expire(&block_key, window_secs as i64).await.unwrap_or(());
+                        let _: () = conn
+                            .expire(&block_key, window_secs as i64)
+                            .await
+                            .unwrap_or(());
                     }
 
                     if count > limit {
@@ -133,7 +143,10 @@ impl AsyncMiddleware for RateLimitMiddleware {
                             HttpResponse::TooManyRequests()
                                 .content_type("application/json")
                                 .set_header("Retry-After", window_secs.to_string())
-                                .body(format!(r#"{{"error": "Too Many Requests", "limit": "{}"}}"#, rate_str))
+                                .body(format!(
+                                    r#"{{"error": "Too Many Requests", "limit": "{}"}}"#,
+                                    rate_str
+                                )),
                         );
                     }
                 }
@@ -142,7 +155,7 @@ impl AsyncMiddleware for RateLimitMiddleware {
                 }
             }
         }
-        
+
         #[cfg(not(feature = "worker"))]
         {
             // The `worker` feature is disabled. We bypass the check.

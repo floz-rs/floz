@@ -13,16 +13,16 @@ pub use pool::PoolOptions;
 
 // PostgreSQL-specific exports
 #[cfg(feature = "postgres")]
-pub use pool::{PgDbPool, pg_pool, pg_pool_with_options};
+pub use pool::{pg_pool, pg_pool_with_options, PgDbPool};
 
 // SQLite-specific exports
 #[cfg(feature = "sqlite")]
-pub use pool::{SqliteDbPool, sqlite_pool, sqlite_pool_with_options};
+pub use pool::{sqlite_pool, sqlite_pool_with_options, SqliteDbPool};
 
 // Legacy aliases (postgres-only mode)
 #[cfg(all(feature = "postgres", not(feature = "sqlite")))]
-pub use pool::{DbPool, pool, pool_with_options};
+pub use pool::{pool, pool_with_options, DbPool};
 
 // Dynamic query functions (postgres only for now)
 #[cfg(feature = "postgres")]
-pub use query::{execute_query, execute_query_json, execute_one_query};
+pub use query::{execute_one_query, execute_query, execute_query_json};

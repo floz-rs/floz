@@ -21,9 +21,9 @@
 //! ```
 
 use crate::middleware::Middleware;
+use http::Method;
 use ntex::http::header::{self, HeaderName, HeaderValue};
 use ntex::web::{HttpRequest, HttpResponse};
-use http::Method;
 use std::collections::HashSet;
 
 /// CORS middleware for floz.
@@ -49,7 +49,11 @@ impl Cors {
     /// Suitable for development; restrict in production.
     pub fn permissive() -> Self {
         Self::default()
-            .allow_methods(["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"].iter().map(|&s| s.to_string()))
+            .allow_methods(
+                ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+                    .iter()
+                    .map(|&s| s.to_string()),
+            )
             .allow_headers(vec![
                 header::AUTHORIZATION,
                 header::ACCEPT,
@@ -141,7 +145,11 @@ impl Cors {
                 if self.allowed_methods.contains(&method.to_uppercase()) {
                     builder.header(
                         header::ACCESS_CONTROL_ALLOW_METHODS,
-                        self.allowed_methods.iter().cloned().collect::<Vec<_>>().join(", "),
+                        self.allowed_methods
+                            .iter()
+                            .cloned()
+                            .collect::<Vec<_>>()
+                            .join(", "),
                     );
                 }
             }
@@ -179,7 +187,9 @@ impl Cors {
         if let Some(origin) = origin {
             if self.is_origin_allowed(&origin) {
                 if let Ok(value) = HeaderValue::from_str(&origin) {
-                    response.headers_mut().insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, value);
+                    response
+                        .headers_mut()
+                        .insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, value);
                 }
 
                 if self.allow_credentials {
@@ -190,13 +200,16 @@ impl Cors {
                 }
 
                 if !self.exposed_headers.is_empty() {
-                    let exposed = self.exposed_headers
+                    let exposed = self
+                        .exposed_headers
                         .iter()
                         .map(|h| h.as_str())
                         .collect::<Vec<_>>()
                         .join(", ");
                     if let Ok(value) = HeaderValue::from_str(&exposed) {
-                        response.headers_mut().insert(header::ACCESS_CONTROL_EXPOSE_HEADERS, value);
+                        response
+                            .headers_mut()
+                            .insert(header::ACCESS_CONTROL_EXPOSE_HEADERS, value);
                     }
                 }
             }

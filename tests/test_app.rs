@@ -23,7 +23,7 @@ fn test_server_config_builder() {
     let config = ServerConfig::new()
         .with_default_host(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)))
         .with_default_port(8080);
-    
+
     let addr = config.get_socket_addr();
     assert_eq!(addr.ip(), IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
     assert_eq!(addr.port(), 8080);
@@ -41,13 +41,15 @@ fn test_config_builder_overrides() {
         jwt_secret: None,
         jwt_audience: None,
         jwt_issuer: None,
+        tls_cert_path: None,
+        tls_key_path: None,
         echo: false,
     };
 
     let _app = App::new()
         .config(custom_config)
         .server(ServerConfig::new().with_default_port(9000));
-    
+
     // We can't easily assert on app internal state in integration tests because fields are private,
     // but we can ensure the builder methods exist and are chainable.
 }

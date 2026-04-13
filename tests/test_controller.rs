@@ -1,7 +1,7 @@
 use floz::controller::format::JsonResponse;
 use floz::controller::pagination::PaginationParams;
-use serde::Serialize;
 use ntex::http::StatusCode;
+use serde::Serialize;
 
 #[derive(Serialize)]
 struct DummyData {
@@ -10,21 +10,27 @@ struct DummyData {
 
 #[test]
 fn test_json_response_ok() {
-    let data = DummyData { name: "test".to_string() };
+    let data = DummyData {
+        name: "test".to_string(),
+    };
     let resp = JsonResponse::ok(&data);
     assert_eq!(resp.status(), StatusCode::OK);
 }
 
 #[test]
 fn test_json_response_with_status() {
-    let data = DummyData { name: "test".to_string() };
+    let data = DummyData {
+        name: "test".to_string(),
+    };
     let resp = JsonResponse::with_status(&data, 202);
     assert_eq!(resp.status(), StatusCode::ACCEPTED);
 }
 
 #[test]
 fn test_json_response_created() {
-    let data = DummyData { name: "test".to_string() };
+    let data = DummyData {
+        name: "test".to_string(),
+    };
     let resp = JsonResponse::created(&data);
     assert_eq!(resp.status(), StatusCode::CREATED);
 }
@@ -84,7 +90,7 @@ fn test_pagination_params_with_model() {
         search: "query".to_string(),
         ..Default::default()
     };
-    
+
     let model_params = base.with_model::<DummyModel>("dummy_module");
     assert_eq!(model_params.limit, 50);
     assert_eq!(model_params.offset, 10);

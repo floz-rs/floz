@@ -5,7 +5,7 @@
 //! ```
 
 // Core app
-pub use crate::app::{App, AppContext, Context, RequestContext, AuthInfo};
+pub use crate::app::{App, AppContext, AuthInfo, Context, RequestContext};
 pub use crate::config::Config;
 pub use crate::errors::{ApiError, ErrorCode};
 
@@ -23,33 +23,32 @@ pub type State = crate::web::State<AppContext>;
 
 // Database
 #[cfg(feature = "postgres")]
-pub use crate::db::{PgDbPool, pg_pool};
+pub use crate::db::{pg_pool, PgDbPool};
 #[cfg(feature = "sqlite")]
-pub use crate::db::{SqliteDbPool, sqlite_pool};
+pub use crate::db::{sqlite_pool, SqliteDbPool};
 // Legacy alias when only postgres is enabled
 #[cfg(all(feature = "postgres", not(feature = "sqlite")))]
-pub use crate::db::{DbPool, pool};
+pub use crate::db::{pool, DbPool};
 
 // Controller
-pub use crate::controller::pagination::PaginationParams;
 pub use crate::controller::format::JsonResponse;
+pub use crate::controller::pagination::PaginationParams;
 pub use crate::controller::validate::ValidationErrors;
 
 // Server
 pub use crate::server::ServerConfig;
 
 // Middleware
-pub use crate::middleware::Middleware;
-pub use crate::middleware::AsyncMiddleware;
-pub use crate::middleware::CacheMiddleware;
-pub use crate::middleware::SessionMiddleware;
-pub use crate::middleware::AuthMiddleware;
 pub use crate::middleware::cors::Cors;
-pub use crate::middleware::trace::{RequestTrace, RequestId};
-pub use crate::middleware::SecurityHeaders;
-pub use crate::middleware::RateLimitMiddleware;
+pub use crate::middleware::trace::{RequestId, RequestTrace};
+pub use crate::middleware::AsyncMiddleware;
+pub use crate::middleware::AuthMiddleware;
+pub use crate::middleware::CacheMiddleware;
 pub use crate::middleware::CsrfMiddleware;
-
+pub use crate::middleware::Middleware;
+pub use crate::middleware::RateLimitMiddleware;
+pub use crate::middleware::SecurityHeaders;
+pub use crate::middleware::SessionMiddleware;
 
 #[cfg(feature = "logger")]
 pub use crate::logger::HttpLogger;
@@ -62,7 +61,7 @@ pub use floz_orm::prelude::*;
 pub use crate::cache::Cache;
 
 // Macros
-pub use crate::{echo, res, pp, xquery};
+pub use crate::{echo, pp, res, xquery};
 
 // Web Sub-modules (WS & Upload)
 pub use crate::web;
@@ -97,5 +96,5 @@ pub type Req = crate::web::HttpRequest;
 pub use serde::{Deserialize, Serialize};
 pub use serde_json::{json, Value};
 
-pub use tracing::{info, warn, error, debug, trace};
 pub use floz_macros::embed_migrations;
+pub use tracing::{debug, error, info, trace, warn};

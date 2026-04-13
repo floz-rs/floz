@@ -40,7 +40,7 @@ pub struct PaginationParams {
     /// Search string: `val` or `col1,col2:val`
     #[serde(default)]
     pub search: String,
-    
+
     /// Relationships to conditionally expand: `user_roles,posts`
     #[serde(default)]
     pub preload: Option<String>,
@@ -58,8 +58,12 @@ pub struct PaginationParams {
     pub id: String,
 }
 
-fn default_limit() -> u32 { 10 }
-fn default_order_by() -> String { "created".to_string() }
+fn default_limit() -> u32 {
+    10
+}
+fn default_order_by() -> String {
+    "created".to_string()
+}
 
 impl Default for PaginationParams {
     fn default() -> Self {

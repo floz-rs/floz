@@ -5,5 +5,5 @@
 //!
 //! Enabled via the `auth` feature flag (included in `full`).
 
-pub mod jwt;
 pub mod api_key;
+pub mod jwt;

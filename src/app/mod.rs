@@ -8,4 +8,4 @@ mod req;
 
 pub use boot::App;
 pub use context::AppContext;
-pub use req::{Context, RequestContext, AuthInfo};
+pub use req::{AuthInfo, Context, RequestContext};

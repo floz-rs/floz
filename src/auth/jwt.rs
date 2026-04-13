@@ -3,9 +3,9 @@
 //! Provides token creation, verification, and claims management.
 //! Extracted from auth/logic/jwt_token_management.rs.
 
-use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey};
-use serde::{Deserialize, Serialize};
 use crate::errors::ApiError;
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use serde::{Deserialize, Serialize};
 
 /// JWT Claims payload.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -66,11 +66,7 @@ pub fn verify_token(
     validation.set_audience(&[audience]);
     validation.set_issuer(&[issuer]);
 
-    let token_data = decode::<Claims>(
-        token,
-        &DecodingKey::from_secret(secret),
-        &validation,
-    )?;
+    let token_data = decode::<Claims>(token, &DecodingKey::from_secret(secret), &validation)?;
 
     Ok(token_data.claims)
 }

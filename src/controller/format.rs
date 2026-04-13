@@ -27,8 +27,7 @@ impl JsonResponse {
         };
 
         HttpResponse::build(
-            ntex::http::StatusCode::from_u16(status)
-                .unwrap_or(ntex::http::StatusCode::OK),
+            ntex::http::StatusCode::from_u16(status).unwrap_or(ntex::http::StatusCode::OK),
         )
         .content_type("application/json")
         .body(body.unwrap_or_default())

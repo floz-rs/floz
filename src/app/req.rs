@@ -33,7 +33,7 @@ impl AuthInfo {
     pub fn is_authenticated(&self) -> bool {
         self.user_id.is_some()
     }
-    
+
     pub fn has_permission(&self, perm: &str) -> bool {
         self.permissions.iter().any(|p| p == perm)
     }
@@ -44,7 +44,7 @@ impl AuthInfo {
 pub struct RequestContext {
     /// The session ID uniquely resolving the current visitor
     pub session_id: String,
-    
+
     /// Authentication context representing the currently authenticated identity
     pub auth: AuthInfo,
 }
@@ -67,14 +67,19 @@ impl<Err: ntex::web::ErrorRenderer> FromRequest<Err> for Context {
     type Error = Error;
 
     #[inline]
-    async fn from_request(req: &HttpRequest, _: &mut ntex::http::Payload) -> Result<Self, Self::Error> {
+    async fn from_request(
+        req: &HttpRequest,
+        _: &mut ntex::http::Payload,
+    ) -> Result<Self, Self::Error> {
         // 1. Extract the Fixed AppContext
-        let app = req.app_state::<AppContext>()
+        let app = req
+            .app_state::<AppContext>()
             .expect("AppContext must be initialized centrally via App::new().state()")
             .clone();
 
         // 2. Extract the RequestContext
-        let req_ctx = req.extensions()
+        let req_ctx = req
+            .extensions()
             .get::<RequestContext>()
             .cloned()
             .unwrap_or_else(|| RequestContext {

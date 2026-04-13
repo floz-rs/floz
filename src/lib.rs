@@ -37,16 +37,16 @@ pub use {chrono, serde_json};
 
 pub mod app;
 pub mod config;
-pub mod errors;
-pub mod server;
-pub mod db;
 pub mod controller;
+pub mod db;
+pub mod errors;
 pub mod macros;
 pub mod router;
+pub mod server;
 
 // Validation — used by #[model] macro codegen
-pub use controller::validate::ValidationErrors;
 pub use controller::validate::validators;
+pub use controller::validate::ValidationErrors;
 
 // Testing utilities — always available
 pub mod testing;
@@ -94,4 +94,3 @@ pub mod openapi;
 pub use floz_orm::*;
 
 pub mod prelude;
-

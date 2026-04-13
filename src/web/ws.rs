@@ -4,7 +4,7 @@
 //!
 //! ```ignore
 //! use floz::prelude::*;
-//! 
+//!
 //! #[route(get: "/ws/chat")]
 //! async fn chat_ws(req: HttpRequest) -> Result<HttpResponse, Error> {
 //!     web::ws::start(req, None::<&str>, |sink| async move {
